@@ -239,7 +239,7 @@ class PPP():
 
 
 
-myPPP = PPP()
+myPPP = PPP(30)
 myPPP.show()
 #myPPP.run(opt=True)
 
