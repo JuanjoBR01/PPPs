@@ -28,13 +28,14 @@ Next steps:
 
 from math import exp, log
 from random import random
+from this import d
 import matplotlib.pyplot as plt
 import numpy as np
 plt.style.use('ggplot')
 
 
 # 2. HYPERPARAMETERS 
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.01
 DISCOUNT = 0.95
 EPISODES = 2000
 SHOW_EVERY = 500
@@ -44,6 +45,8 @@ START_EPSILON_DECAYING = 1                                                      
 END_EPSILON_DECAYING = EPISODES // 2                                                                        # Episode where epsilon does not affect anymore
 epsilon_decay_value = epsilon/(END_EPSILON_DECAYING - START_EPSILON_DECAYING)                               # Rate of decay of epsilon after each step
 
+NUM_INTERVALS = 20
+
 
 # 3. CLASS DEFINITION
 
@@ -52,9 +55,9 @@ class EnvPPP():
     # Function that initializes the environment
 
     def __init__(self):
-        self.S = [0,1,2]                            # Current state (for when running [Age, Performance, Budget]
+        self.S = [0,0.3,2]                          # Current state (for when running [Age, Performance, Budget]
         self.X = [0, 1]								# Available actions
-        self.L = range(5)                           # Discrete levels
+        self.L = range(NUM_INTERVALS)               # Discrete levels
         self.T = 40								    # Planning horizon
         self.W = [False, True] 		                # [shock?, inspection?] (currently deterministic)
 
@@ -64,16 +67,17 @@ class EnvPPP():
         self.offset = 3 							# "Offset" of sigmoidal benefit-performance function
         self.threshold = 0.6                        # Performance treshold
 
-        self.episodes = 100                           # Environment episodes
-        self.q_table = np.random.uniform(low = -2, high = 0, size = ([5] + [2]))
+        self.episodes = 10000                     # Environment episodes
+        self.q_table = np.random.uniform(low = -2, high = 0, size = ([NUM_INTERVALS] + [2]))
 
 
     # Function that returns the incentive according to the performance level
 
-    def incentive(self, S, W, choice='sigmoid'):
-        age = S[0]
-        perf = S[1]
+    def discretize_performance(perf):
+        return int(min(max(np.ceil(perf*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
 
+    def incentive(self, S, W, choice='sigmoid'):
+        perf = S[1]
         if choice=='sigmoid':
             rate, offset = 10, self.threshold
             incent = 1/( 1 + exp(-rate*(perf-offset)))			
@@ -83,6 +87,7 @@ class EnvPPP():
             incent = offset + slope*perf
         
         return incent
+        
 
 
     # Function that deteriorates the system
@@ -108,7 +113,7 @@ class EnvPPP():
     def transition(self, S, X, W):
         if X:
             self.S[0] = 0
-            self.S[1] = 1
+            self.S[1] = min(self.S[1] + 0.3, 1)
         delta_perf = self.deteriorate(S, W)
         bud = self.cost(S, X, W)
 
@@ -117,10 +122,10 @@ class EnvPPP():
         return delta_perf, bud
 
     # Action function
-    def fixed_action_rule_agent(self, q_table, random_exploration, num_levels):
+    def fixed_action_rule_agent(self, q_table, random_exploration):
         # According to the q_table we'll make the decision
-
-        discrete_state = int(min(max(np.ceil(self.S[1]*num_levels)-1, 0),4))
+        perf = self.S[1]
+        discrete_state = int(min(max(np.ceil(perf*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
 
         if not random_exploration:
             print(np.argmax(q_table[discrete_state]))
@@ -139,23 +144,23 @@ class EnvPPP():
 
         for episode in range(self.episodes):	
 
-            X = self.fixed_action_rule_agent(self.q_table, False, 5)
+            X = self.fixed_action_rule_agent(self.q_table, False)
 
             # Update of the q_table
-            prev_state = int(min(max(np.ceil(self.S[1]*5)-1, 0),4))
+            prev_state = int(min(max(np.ceil(self.S[1]*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
             prev_performance = self.S[1]
-            current_q = self.q_table[prev_state + X]
+            current_q = self.q_table[prev_state, X]
 
+            values = self.transition(self.S, X, self.W)
+            delta_perf = values[0]
+            reward = values[1]
 
-            delta_perf = self.transition(self.S, X, self.W)[0]
-            reward = self.transition(self.S, X, self.W)[1]
-
-            new_state = int(min(max(np.ceil((self.S[1]+delta_perf)*5)-1, 0),4))
+            new_state = int(min(max(np.ceil(self.S[1]*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
             max_future_q = np.max(self.q_table[new_state])
             
             new_q = (1-LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT * max_future_q)
             
-            self.q_table [prev_state + X] = new_q
+            self.q_table [prev_state, X] = new_q
 
             performance.append(self.S[1])
             cashflow.append(self.S[2])
@@ -168,8 +173,8 @@ class EnvPPP():
 
 
 myPPP = EnvPPP()
-
 myPPP.run()
+
 
 
 
