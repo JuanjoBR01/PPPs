@@ -23,12 +23,43 @@ class PPP():
 		self.L = range(5)									# discrete levels
 		self.T = range(Tau) 								# time horizon (if any)
 
+		'''
+		Modelo de ciclos de deterioro
+		self.t_reach_half = 12
+		self.Q = range(self.t_reach_half)
+		'''
+
+		'''
+		Parámetros necesarios para modelar el deterioro
+		'''
+
 		self.thres = 3										# performance threshold (discrete)
 		self.fail = .2										# failure threshold (continuous)
 		self.ttf = 10.0										# time to failure
 		
 		self.Lambda = -log(self.fail)/self.ttf				# perf_tt = exp(-Lambda*tt) --> Lambda = -ln(perf_tt)/tt
 		
+
+		'''
+		Épsilon del retorno
+		Benefit and target profit
+        self.epsilon = 1.4*100
+
+		Parámetro f (¿?)
+		Revisar paper exacto  }
+        self.f ={0:0,1:135,2:0,3:0,4:0,5:83.8243786129859,6:0,7:0,8:0,9:0,10:52.0483440729868,11:0,12:0,13:0,14:0,15:32.3179266648371,16:0,17:0,18:0,19:0,20:20.0668897832594,21:0,22:0,23:0,24:0,25:12.4599597539036,26:0,27:0,28:0,29:0,30:7.73665469565768}
+
+		Modelado del VDT - Discount Factor
+		self.d = {}
+        for i in range(1,6):
+            b = 10.0-2*i
+            for j in range(1,31):
+                self.d[(i,j)]=(b/(1+0.1)**(j-1))
+		
+
+		# Minimum performance 
+        self.minP = .6
+		'''
 		self.c_m = 1 										# cost of a maintenance action
 		self.rate = 3 										# "slope" of sigmoidal benefit-performance function
 		self.offset = 3 									# "offset" of sigmoidal benefit-performance function
@@ -39,6 +70,43 @@ class PPP():
 		self.v_hat = {i:0 for i in range(int(self.ttf))} 	# state value estimation
 
 		self.alpha = .5		
+
+		'''
+		Beneficio social asociado al nivel de performance. g_star es el deseado
+		'''
+		self.g = {5:2, 4:47, 3:500, 2:953, 1:998}
+		# Earnings target
+		self.g_star = 595
+
+		'''
+		Fixed income from the principal to the agent
+		# self.a = 50
+		'''
+
+
+		'''
+		Leader budget
+        self.Beta = 5e8
+		'''
+
+		'''
+		Queremos usar el bond o el sigmoidal del incentivo?
+		        bond = {1: {5:-29.65, 4:-27.4, 3:-4.75, 2:17.9, 1:20.15},
+                2:{5:-148.25, 4:-137, 3:-23.75, 2:89.5, 1:100.75},
+                3:{5:-296.5, 4:-274, 3:-47.5, 2:179, 1:201.5},
+                4:{5:-444.75, 4:-411, 3:-71.25, 2:268.5, 1:302.25}}
+
+		1 va por default
+        self.bond = bond[1]
+
+		'''
+
+		'''
+		Fixed cost of inspection
+        self.c_sup_i = 1
+        c_sup_i = {1:50, 2:250, 3:70}
+        self.c_sup_i = c_sup_i[INS]
+		'''
 	
 
 	'''
@@ -74,6 +142,10 @@ class PPP():
 		get discrete state (level) from (0,1) performance
 	'''
 	def get_level(self, perf):
+
+		'''
+			Samuel: recordar ajustar en el MIP
+		'''
 
 		if perf < .2:
 			return 0
@@ -211,6 +283,7 @@ class PPP():
 	'''
 	def run(self, opt=True):
 		pi = self.policy_iteration()
+		print(pi)
 		performance = []
 		cashflow = []
 		total = 0

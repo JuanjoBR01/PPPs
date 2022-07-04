@@ -15,12 +15,14 @@
  1. Creation of Q_Table
  2. The agent won't make decisions according to a fixed policy, but according to the q_table
  3. The q values must be updated depending on the new state
+ 4. There are two types of maintenance, full and partial
 '''
 
 '''
 Next steps:
 1. Let the agent make random decisions with the epsilon parameter
 2. Parametrize the number of discrete states for the performance. In this script is a fixed value = 5
+3. Revisar la librería de Juan para hacer los cambios de los parámetros a la hora de crear la clase
 '''
 
 
@@ -45,7 +47,7 @@ START_EPSILON_DECAYING = 1                                                      
 END_EPSILON_DECAYING = EPISODES // 2                                                                        # Episode where epsilon does not affect anymore
 epsilon_decay_value = epsilon/(END_EPSILON_DECAYING - START_EPSILON_DECAYING)                               # Rate of decay of epsilon after each step
 
-NUM_INTERVALS = 20
+NUM_INTERVALS = 100
 
 
 # 3. CLASS DEFINITION
@@ -55,7 +57,7 @@ class EnvPPP():
     # Function that initializes the environment
 
     def __init__(self):
-        self.S = [0,0.3,2]                          # Current state (for when running [Age, Performance, Budget]
+        self.S = [0,0.35,2]                          # Current state (for when running [Age, Performance, Budget]
         self.X = [0, 1]								# Available actions
         self.L = range(NUM_INTERVALS)               # Discrete levels
         self.T = 40								    # Planning horizon
@@ -67,7 +69,7 @@ class EnvPPP():
         self.offset = 3 							# "Offset" of sigmoidal benefit-performance function
         self.threshold = 0.6                        # Performance treshold
 
-        self.episodes = 10000                     # Environment episodes
+        self.episodes = 30                     # Environment episodes
         self.q_table = np.random.uniform(low = -2, high = 0, size = ([NUM_INTERVALS] + [2]))
 
 
@@ -107,13 +109,14 @@ class EnvPPP():
 
     # Cost function
     def cost(self, S, X, W):
+        # Inspeccionar cada 5 periodos
         return -self.FC*X - self.VC*X + 7*self.incentive(S, W)
 
     # Transition between states function
     def transition(self, S, X, W):
         if X:
             self.S[0] = 0
-            self.S[1] = min(self.S[1] + 0.3, 1)
+            self.S[1] = 1
         delta_perf = self.deteriorate(S, W)
         bud = self.cost(S, X, W)
 

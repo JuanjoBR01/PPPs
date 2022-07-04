@@ -1,0 +1,9 @@
+Diferentes realizaciones de escenarios diferentes de deterioro
+Hay diferentes realizaciones y lo que arroje ese método lo mando al MIP
+Queremos replicar lo que hace el agente con lo que hace el MIP
+En ciertos escenarios no quiero que el performance baje hasta cierto punto
+Nos interesa idea de los sample paths. Tener la capacidad de generar escenarios estocásticos. 
+Primer paso, que la clase PPP me permita instanciar lo que necesita el MIP.
+Primer ejercicio, comparar la función objetivo de policy iteration con el binivel 
+Estandarizar las visualizaciones gráficas. Agregar el scatter que nos diga cuándo se arregló
+Queremos como objetivo comparar cabeza a cabeza lo que corre el policy iteration contra el binivel
