@@ -171,10 +171,12 @@ class PPP():
 		apply maintenance OR increase time since last maintenance
 	'''
 	def transition(self, S, X=0, W=[False, False]):
-		
+		S_prime = 0
 		if X > .5:
 			S_prime = 0	
-		elif S < int(self.ttf)-1:
+		# TODO: Preguntar a qué hace referencia este condicional
+		#elif S < int(self.ttf)-1:
+		else:
 			S_prime += 1
 
 		return S_prime
@@ -313,6 +315,6 @@ class PPP():
 
 
 myPPP = PPP(30)
-myPPP.show()
+myPPP.run()
 #myPPP.run(opt=True)
 

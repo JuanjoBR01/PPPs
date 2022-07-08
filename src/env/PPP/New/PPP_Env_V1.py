@@ -23,15 +23,21 @@ Next steps:
 1. Let the agent make random decisions with the epsilon parameter
 2. Parametrize the number of discrete states for the performance. In this script is a fixed value = 5
 3. Review Juan's library to change the inputs when creating the instance 
+4. Add a scatter plot for when the agent decides to fix
 '''
 
 
 # 1. lIBRARY IMPORT
 
 from math import exp, log
-from random import random
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib import style
 import numpy as np
+import pandas as pd
+from random import random
+
+from pip import main
 plt.style.use('ggplot')
 
 
@@ -68,7 +74,7 @@ class EnvPPP():
         self.offset = 3 							# "Offset" of sigmoidal benefit-performance function
         self.threshold = 0.6                        # Performance treshold (discrete)
 
-        self.episodes = 3000                          # Environment episodes
+        self.episodes = 300                          # Environment episodes
         self.q_table = np.random.uniform(low = -2, high = 0, size = ([NUM_INTERVALS] + [2]))
 
 
@@ -158,7 +164,7 @@ class EnvPPP():
     # Function that returns the incentive according to the performance level
 
     def discretize_performance(perf):
-        # TODO Samuel: review the MIP
+        # TODO Samuel: review the MIP - The bigger level, the better for JJ, otherwise for Samuel
         return int(min(max(np.ceil(perf*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
 
     def incentive(self, S, W, choice='sigmoid'):
@@ -193,7 +199,7 @@ class EnvPPP():
     # Cost function
     def cost(self, S, X, W, episode):
         # Inspect each 5 episodes
-        return -self.FC*X - self.VC*X + 7*self.incentive(S, W) if not episode % 5 else -self.FC*X - self.VC*X
+        return -self.FC*X - self.VC*X + 7*self.incentive(S, W) if not episode % 5 and episode > 0 else -self.FC*X - self.VC*X
 
     # Transition between states function
     def transition(self, S, X, W, episode):
@@ -214,31 +220,58 @@ class EnvPPP():
         discrete_state = int(min(max(np.ceil(perf*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
 
         if not random_exploration:
-            print(np.argmax(q_table[discrete_state]))
             return np.argmax(q_table[discrete_state])
 
         else:        
             return round(random())
+
+
+
+    # Function to plot the important metrics of the environment
+
+    def show(self, inspect, maint, perf):
+        fig = plt.figure(figsize =(10, 5))
+        ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+
+        Inspection = {t:(t,inspect[t]) for t in range(self.episodes) if inspect[t]}
+        Maintenance = {t:(t,maint[t]) for t in range(self.episodes) if maint[t]}
+        ax.plot(range(self.episodes), perf, 'k--', linewidth = 1.5, label = "Equilibrium solution for both parties")
+        ax.plot([Inspection[t][0] for t in Inspection], [Inspection[t][1] for t in Inspection], 'rs', label = "Inspection actions")
+        ax.plot([Maintenance[t][0] for t in Maintenance], [Maintenance[t][1] for t in Maintenance], 'b^', label = "Maintenance actions")
+        ax.set_xlabel("Period", size=15)
+        ax.set_ylabel("Road's Performance", size=15)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
+        plt.suptitle("Leader's perspective" , fontsize=15)
+        plt.grid(True)
+        plt.savefig('Leader perspective.png')
+        plt.show()
+        # plt.close(fig)
 
 	# Function to iterate the environment
 
     def run(self):
         performance = []
         cashflow = []
+        inspections = []
+        maintenances = []
 
-        print(self.q_table)
 
-        for episode in range(self.episodes):	
+        for episode in range(self.episodes):
 
             X = self.fixed_action_rule_agent(self.q_table, False)
 
+            if episode > 0 and episode % 5 == 0:
+                inspections.append(1)
+            else:
+                inspections.append(0)
+
+            maintenances.append(X)
+
             # Update of the q_table
             prev_state = int(min(max(np.ceil(self.S[1]*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
-            prev_performance = self.S[1]
             current_q = self.q_table[prev_state, X]
 
             values = self.transition(self.S, X, self.W, episode)
-            delta_perf = values[0]
             reward = values[1]
 
             new_state = int(min(max(np.ceil(self.S[1]*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
@@ -251,58 +284,51 @@ class EnvPPP():
             performance.append(self.S[1])
             cashflow.append(self.S[2])
 
+        '''
         plt.subplot(2,1,1)
         plt.plot(performance)
         plt.subplot(2,1,2)
         plt.plot(cashflow)
         plt.show()
+        '''
+
+        # Delete this comment for plot the performance for an specific realization  
+        self.show(inspections, maintenances, performance)
 
 
+        return cashflow
+
+
+
+
+
+
+# Specific realization
 myPPP = EnvPPP()
 myPPP.run()
 
 
 
+'''
+
+# MONTECARLO SIMULATION
+
+num_simulations = 1000
+periods = range(1, 3001)
+
+fig = plt.figure()
+plt.title("PPP Simulation " + str(num_simulations) + " Paths")
+plt.xlabel("Period")
+plt.ylabel("Balance [$]")
+
+for i in range (num_simulations):
+    myPPP = EnvPPP()
+    cashflow = []
+    cashflow = myPPP.run()
+    plt.plot(periods, cashflow)
 
 
+plt.show()
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+'''
 
