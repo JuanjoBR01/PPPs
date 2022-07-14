@@ -57,16 +57,13 @@ class EnvPPP():
     def __init__(self):
 
         # --- Variable that lets the user to view a single replica or the complete simulation ---
-        self.SINGLE_REPLICA = False
-
-
+        self.SINGLE_REPLICA = True
 
 
         # ---- Class Atributes ----
         self.S = [0, 1, 2]                          # Current state (for when running [Age, Performance, Budget]
-        self.X = [0, 1]								# Available actions
         self.T = 30								    # Planning horizon
-        self.W = [False, True] 		                # [shock?, inspection?] (currently deterministic)
+        self.W = [0, 1] 		                    # [shock?, inspection?] (currently deterministic)
 
         self.FC = 1                                 # Fixed maintenance cost
         self.VC = 1                                 # Variable maintenance cost    
@@ -177,10 +174,14 @@ class EnvPPP():
         # TODO Samuel: review the MIP - The bigger level, the better for JJ, otherwise for Samuel
         return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
 
-    # Incentive calculated depending on the
+    # Incentive calculated depending on the inspection
 
-    def incentive(self, S, W, choice='sigmoid'):
-        perf = S[1]
+    def incentive(self, choice='sigmoid'):
+
+        if self.W[1] == 0:
+            return 0
+
+        perf = self.S[1]
         if choice=='sigmoid':
             rate, offset = 10, self.threshold
             incent = 1/( 1 + exp(-rate*(perf-offset)))			
@@ -190,14 +191,12 @@ class EnvPPP():
             incent = offset + slope*perf
         
         return incent
-        
-
 
     # Function that deteriorates the system
 
-    def deteriorate(self, S, W):
-        age = S[0]		
-        shock = W[0]
+    def deteriorate(self):
+        age = self.S[0]		
+        shock = self.W[0]
 
         Lambda = -log(self.threshold)/10   	# perf_tt = exp(-Lambda*tt) --> Lambda = -ln(perf_tt)/tt x
 		
@@ -208,38 +207,48 @@ class EnvPPP():
 
         return delta_perf
 
+    def inspect(self, policy, episode):
+
+        # Three options: fixed (every 5 periods), random_x (bernoulli probability), reach (if the performance gets to a level)
+
+        if policy[:5] == 'fixed':
+            aux = episode + 1
+            return 1 if episode > 0 and aux % int(policy[6:]) == 0 else 0
+
+        elif policy[:6] == 'random':
+            return round( random() < int(policy[7:])/100.0)
+        
+        elif policy[:5] == 'reach':
+            level = int(policy[6:]) / 100
+            return 1 if self.S[1] <= level else 0
+
+
     # Cost function
-    def cost(self, S, X, W, episode):
-        # Inspect each 5 episodes
-        return -self.FC*X - self.VC*X + 7*self.incentive(S, W) if not episode + 1 % 5 and episode > 0 else -self.FC*X - self.VC*X
+    def cost(self, X):
+        return -self.FC*X - self.VC*X + 7*self.incentive()
 
 
     # Transition between states function
-    def transition(self, S, X, W, episode):
-        delta_perf = self.deteriorate(S, W)
-        bud = self.cost(S, X, W, episode)
+    def transition(self, X):
+        delta_perf = self.deteriorate()
+        bud = self.cost(X)
 
         if X:
-            self.S[0] = 0
-            self.S[1] = 1
-            self.S = [S[0]+1, 1, S[2]+bud]
+            self.S = [0, 1, self.S[2]+bud]
         else:
-            self.S = [S[0]+1, S[1]+delta_perf, S[2]+bud]
+            self.S = [self.S[0]+1, self.S[1]+delta_perf, self.S[2]+bud]
             
-
-        
-
 
         return delta_perf, bud
 
     # Action function
-    def fixed_action_rule_agent(self, q_table, random_exploration):
+    def fixed_action_rule_agent(self, random_exploration):
         # According to the q_table we'll make the decision
         perf = self.S[1]
         discrete_state = int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
 
         if not random_exploration:
-            return np.argmax(q_table[discrete_state])
+            return np.argmax(self.q_table[discrete_state])
 
         else:        
             return round(random())
@@ -277,21 +286,20 @@ class EnvPPP():
 
         for episode in range(self.episodes):
 
-            X = self.fixed_action_rule_agent(self.q_table, False)
+            X = self.fixed_action_rule_agent(False)
 
-            aux = episode + 1
-            if episode > 0 and aux % 5 == 0:
-                inspections.append(1)
-            else:
-                inspections.append(0)
+            #self.W[1] = self.inspect('random_50', episode)
+            #self.W[1] = self.inspect('reach_99', episode)
+            self.W[1] = self.inspect('fixed_5', episode)
 
+            inspections.append(self.W[1])
             maintenances.append(X)
 
             # Update of the q_table
             prev_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
             current_q = self.q_table[prev_state, X]
 
-            values = self.transition(self.S, X, self.W, episode)
+            values = self.transition(X)
             reward = values[1]
 
             new_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
@@ -319,8 +327,6 @@ class EnvPPP():
         return cashflow
 
 
-
-
 myPPP = EnvPPP()
 
 if myPPP.SINGLE_REPLICA:
@@ -346,14 +352,3 @@ else:
 
 
     plt.show()
-
-
-
-
-
-
-
-
-
-
-
