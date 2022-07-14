@@ -11,73 +11,83 @@
 '''
 
 '''
- Changes compared to the original code
+ Changes compared to the original code 
  1. Creation of Q_Table
- 2. The agent won't make decisions according to a fixed policy, but according to the q_table
+ 2. The agent won't make decisions according to a fixed (or random) policy, but according to the q_table
  3. The q values must be updated depending on the new state
  4. There are two types of maintenance, full and partial (not final)
 '''
 
 '''
 Next steps:
-1. Let the agent make random decisions with the epsilon parameter
-2. Parametrize the number of discrete states for the performance. In this script is a fixed value = 5
-3. Review Juan's library to change the inputs when creating the instance 
-4. Add a scatter plot for when the agent decides to fix
+    1. Let the agent make random decisions with the epsilon parameter
+    2. Review Juan's library to change the inputs when creating the instance 
+    3. Inspection to be decided randomly or coincidentally when the performance is a determinated value or less 
+    4. Delete unused and redundant parameters (contained by the class)
+    5. Keep improving the graphics
+
+:)  0. Parametrize the number of discrete states for the performance. In this script is a fixed value = 5 
+:)  0. Add a scatter plot for when the agent decides to fix
+:)  0. Let the user decide whether see one replica of the model or the complete simulation for 1000 paths
+'''
+
+'''
+Important details:
+1. Currently, the agent con only make two decisions, fix or not. When fixing, the performance reaches 100%
+2. Q_table is being initialized randomly
 '''
 
 
-# 1. lIBRARY IMPORT
+# -------------------------------- lIBRARY IMPORT ---------------------------------
 
 from math import exp, log
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib import style
 import numpy as np
-import pandas as pd
 from random import random
-
-from pip import main
 plt.style.use('ggplot')
 
 
-# 2. HYPERPARAMETERS 
-LEARNING_RATE = 0.01
-DISCOUNT = 0.95
-EPISODES = 2000
-SHOW_EVERY = 500
 
-epsilon = 0.5                                                                                               # Probability to make a random exploration
-START_EPSILON_DECAYING = 1                                                                                  # Episode where epsilon begins to affect
-END_EPSILON_DECAYING = EPISODES // 2                                                                        # Episode where epsilon does not affect anymore
-epsilon_decay_value = epsilon/(END_EPSILON_DECAYING - START_EPSILON_DECAYING)                               # Rate of decay of epsilon after each step
-
-NUM_INTERVALS = 100
-
-
-# 3. CLASS DEFINITION
+# -------------------------------- CLASS DEFINITION ---------------------------------
 
 class EnvPPP():
 
-    # Function that initializes the environment
+    # -------------------- Builder Method --------------------
 
     def __init__(self):
-        self.S = [0,0.35,2]                         # Current state (for when running [Age, Performance, Budget]
+
+        # --- Variable that lets the user to view a single replica or the complete simulation ---
+        self.SINGLE_REPLICA = False
+
+
+
+
+        # ---- Class Atributes ----
+        self.S = [0, 1, 2]                          # Current state (for when running [Age, Performance, Budget]
         self.X = [0, 1]								# Available actions
-        self.L = range(NUM_INTERVALS)               # Discrete levels
-        self.T = 40								    # Planning horizon
+        self.T = 30								    # Planning horizon
         self.W = [False, True] 		                # [shock?, inspection?] (currently deterministic)
 
-        self.FC = 10                                # Fixed maintenance cost
+        self.FC = 1                                 # Fixed maintenance cost
         self.VC = 1                                 # Variable maintenance cost    
         self.rate = 3 								# "Slope" of sigmoidal benefit-performance function
         self.offset = 3 							# "Offset" of sigmoidal benefit-performance function
         self.threshold = 0.6                        # Performance treshold (discrete)
 
-        self.episodes = 300                          # Environment episodes
-        self.q_table = np.random.uniform(low = -2, high = 0, size = ([NUM_INTERVALS] + [2]))
+        self.episodes = 30                          # Environment episodes
 
+        # ---- Hyperparameters -----
+        
+        self.LEARNING_RATE = 0.01
+        self.DISCOUNT = 0.95
+        self.epsilon = 0.5         
+        self.START_EPSILON_DECAYING = 1                                                                                  # Episode where epsilon begins to affect
+        self.END_EPSILON_DECAYING = self.episodes // 2                                                                   # Episode where epsilon does not affect anymore
+        self.epsilon_decay_value = self.epsilon/(self.END_EPSILON_DECAYING - self.START_EPSILON_DECAYING)                # Rate of decay of epsilon after each step
+        self.NUM_INTERVALS = 100
 
+        # ---- Q-Table ----
+        self.q_table = np.random.uniform(low = -2, high = 0, size = ([self.NUM_INTERVALS] + [2]))   
         '''
         Deterioration cycles model
         self.t_reach_half = 12
@@ -163,9 +173,11 @@ class EnvPPP():
 
     # Function that returns the incentive according to the performance level
 
-    def discretize_performance(perf):
+    def discretize_performance(self, perf):
         # TODO Samuel: review the MIP - The bigger level, the better for JJ, otherwise for Samuel
-        return int(min(max(np.ceil(perf*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
+        return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+
+    # Incentive calculated depending on the
 
     def incentive(self, S, W, choice='sigmoid'):
         perf = S[1]
@@ -199,17 +211,24 @@ class EnvPPP():
     # Cost function
     def cost(self, S, X, W, episode):
         # Inspect each 5 episodes
-        return -self.FC*X - self.VC*X + 7*self.incentive(S, W) if not episode % 5 and episode > 0 else -self.FC*X - self.VC*X
+        return -self.FC*X - self.VC*X + 7*self.incentive(S, W) if not episode + 1 % 5 and episode > 0 else -self.FC*X - self.VC*X
+
 
     # Transition between states function
     def transition(self, S, X, W, episode):
-        if X:
-            self.S[0] = 0
-            self.S[1] = 1
         delta_perf = self.deteriorate(S, W)
         bud = self.cost(S, X, W, episode)
 
-        self.S = [S[0]+1, S[1]+delta_perf, S[2]+bud]
+        if X:
+            self.S[0] = 0
+            self.S[1] = 1
+            self.S = [S[0]+1, 1, S[2]+bud]
+        else:
+            self.S = [S[0]+1, S[1]+delta_perf, S[2]+bud]
+            
+
+        
+
 
         return delta_perf, bud
 
@@ -217,7 +236,7 @@ class EnvPPP():
     def fixed_action_rule_agent(self, q_table, random_exploration):
         # According to the q_table we'll make the decision
         perf = self.S[1]
-        discrete_state = int(min(max(np.ceil(perf*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
+        discrete_state = int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
 
         if not random_exploration:
             return np.argmax(q_table[discrete_state])
@@ -260,7 +279,8 @@ class EnvPPP():
 
             X = self.fixed_action_rule_agent(self.q_table, False)
 
-            if episode > 0 and episode % 5 == 0:
+            aux = episode + 1
+            if episode > 0 and aux % 5 == 0:
                 inspections.append(1)
             else:
                 inspections.append(0)
@@ -268,16 +288,16 @@ class EnvPPP():
             maintenances.append(X)
 
             # Update of the q_table
-            prev_state = int(min(max(np.ceil(self.S[1]*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
+            prev_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
             current_q = self.q_table[prev_state, X]
 
             values = self.transition(self.S, X, self.W, episode)
             reward = values[1]
 
-            new_state = int(min(max(np.ceil(self.S[1]*NUM_INTERVALS)-1, 0),NUM_INTERVALS-1))
+            new_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
             max_future_q = np.max(self.q_table[new_state])
             
-            new_q = (1-LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT * max_future_q)
+            new_q = (1-self.LEARNING_RATE) * current_q + self.LEARNING_RATE * (reward + self.DISCOUNT * max_future_q)
             
             self.q_table [prev_state, X] = new_q
 
@@ -292,8 +312,8 @@ class EnvPPP():
         plt.show()
         '''
 
-        # Delete this comment for plot the performance for an specific realization  
-        self.show(inspections, maintenances, performance)
+        if self.SINGLE_REPLICA:
+            self.show(inspections, maintenances, performance)
 
 
         return cashflow
@@ -301,34 +321,39 @@ class EnvPPP():
 
 
 
-
-
-# Specific realization
 myPPP = EnvPPP()
-myPPP.run()
+
+if myPPP.SINGLE_REPLICA:
+    # Single replica
+    myPPP.run()
+
+else:
+    # MONTECARLO SIMULATION
+
+    num_simulations = 1000
+    periods = range(1, myPPP.episodes+1)
+
+    fig = plt.figure()
+    plt.title("PPP Simulation " + str(num_simulations) + " Paths")
+    plt.xlabel("Period")
+    plt.ylabel("Balance [$]")
+
+    for i in range (num_simulations):
+        myPPP = EnvPPP()
+        cashflow = []
+        cashflow = myPPP.run()
+        plt.plot(periods, cashflow)
+
+
+    plt.show()
 
 
 
-'''
-
-# MONTECARLO SIMULATION
-
-num_simulations = 1000
-periods = range(1, 3001)
-
-fig = plt.figure()
-plt.title("PPP Simulation " + str(num_simulations) + " Paths")
-plt.xlabel("Period")
-plt.ylabel("Balance [$]")
-
-for i in range (num_simulations):
-    myPPP = EnvPPP()
-    cashflow = []
-    cashflow = myPPP.run()
-    plt.plot(periods, cashflow)
 
 
-plt.show()
 
-'''
+
+
+
+
 
