@@ -276,7 +276,6 @@ class PPP():
 													# The trick: V_bw uses a new 'v_hat'
 				if old_action != current_policy[i]:
 					policy_is_changing = True
-		print (current_policy)
 		return current_policy
 
 

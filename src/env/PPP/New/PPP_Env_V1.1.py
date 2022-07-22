@@ -11,36 +11,18 @@
 '''
 
 '''
- Changes compared to the original code 
- 1. Creation of Q_Table
- 2. The agent won't make decisions according to a fixed (or random) policy, but according to the q_table
- 3. The q values must be updated depending on the new state
- 4. There are two types of maintenance, full and partial (not final)
-'''
-
-'''
 Next steps:
     1. Let the agent make random decisions with the epsilon parameter
     2. Review Juan's library to change the inputs when creating the instance 
     3. Keep improving the graphics
-
-:)  0. Inspection to be decided randomly or coincidentally when the performance is a determinated value or less 
-:)  0. Delete unused and redundant parameters (contained by the class)
-:)  0. Parametrize the number of discrete states for the performance. In this script is a fixed value = 5 
-:)  0. Add a scatter plot for when the agent decides to fix
-:)  0. Let the user decide whether see one replica of the model or the complete simulation for 1000 paths
+    4. Graph the historic rewards
+    5. Review why the random seed is affecting the behaviour 
 '''
 
 '''
 Important details:
 1. Currently, the agent con only make two decisions, fix or not. When fixing, the performance reaches 100%
 2. Q_table is being initialized randomly
-'''
-
-'''
-Cambiar que se está graficando el porformance que queda después de haber tomado la decisión
-Mantenimiento debería ser instantáneo -> performance se cambia en el mismo periodo
-La tabla_q debería ser estática -> Cuando hago las réplicas vuelvo y arranco desde la experiencia. Inicializar únicamente en la primera réplica
 '''
 
 
@@ -54,8 +36,8 @@ import random
 from torch import seed
 plt.style.use('ggplot')
 
-np.random.seed(8)
-random.seed(8)
+np.random.seed(10)
+random.seed(10)
 
 # -------------------------------- CLASS DEFINITION ---------------------------------
 
@@ -65,15 +47,11 @@ class EnvPPP():
 
     def __init__(self):
 
-        # --- Variable that lets the user to view a single replica or the complete simulation ---
-        self.SINGLE_REPLICA = False
-
-
         # ---- Class Atributes ----
         self.S = [0, 1, 2]                          # Current state (for when running [Age, Performance, Budget]
         self.T = 30								    # Planning horizon
         self.W = [0, 1] 		                    # [shock?, inspection?
-        self.L = range(5)									# discrete levels
+        self.L = range(1,6)									# discrete levels
 
 
         self.FC = 1                                 # Fixed maintenance cost
@@ -96,6 +74,7 @@ class EnvPPP():
 
         # ---- Q-Table ----
         self.q_table = np.random.uniform(low = -2, high = 0, size = ([self.NUM_INTERVALS] + [2]))   
+
         '''
         Deterioration cycles model
         self.t_reach_half = 12
@@ -143,6 +122,7 @@ class EnvPPP():
         '''
         Social benefit related to the performance level. g_star is the expected one 
         '''
+
         self.g = {5:2, 4:47, 3:500, 2:953, 1:998}
         # Earnings target
         self.g_star = 595
@@ -151,7 +131,6 @@ class EnvPPP():
         Fixed income from the principal to the agent
         # self.a = 50
         '''
-
 
         '''
         Leader budget
@@ -176,6 +155,17 @@ class EnvPPP():
         c_sup_i = {1:50, 2:250, 3:70}
         self.c_sup_i = c_sup_i[INS]
         '''
+
+        gamma = [round(exp(-self.Lambda*tau),2) for tau in range(self.T)]
+        self.bond = {}
+        for level in self.L:
+            average_l = 0
+            count_l = 0
+            for gamma_val in gamma:
+                if self.get_level(gamma_val) == level:
+                    average_l += 7*self.incentive() 
+                    count_l += 1
+            self.bond[level] = average_l/count_l
 	
 
 
@@ -199,27 +189,15 @@ class EnvPPP():
         # TODO Samuel: review the MIP - The bigger level, the better for JJ, otherwise for Samuel
         return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
 
-    # Incentive calculated depending on the inspection
-    # TODO: ACÁ VAMOS
+
+    # Incentive calculated depending on the inspection    
     def MIP_incentive(self):
-        gamma = [round(exp(-self.Lambda*tau),2) for tau in range(self.T)]
-        bond = {}
-        for level in self.L:
-            average_l = 0
-            count_l = 0
-            for gamma_val in gamma:
-                if self.get_level(gamma_val) == level:
-                    average_l += 7*self.incentive(S=[0,gamma_val], W = self.W) 
-                    count_l += 1
-            bond[level] = average_l/count_l
-        
-        return bond[self.get_level(self.S[1])]
+        return self.bond[self.get_level(self.S[1])]
+
 
     def incentive(self, choice='sigmoid'):
 
-
-        # Samuel tiene la función discretizada según el nivel de performance
-        
+        # Samuel has discretized the function according to the performance level
         if self.W[1] == 0:
             return 0
 
@@ -236,7 +214,6 @@ class EnvPPP():
         return incent
 
     # Function that deteriorates the system
-
     def deteriorate(self):
         age = self.S[0]		
         shock = self.W[0]
@@ -250,6 +227,7 @@ class EnvPPP():
 
         return delta_perf
 
+    # Function to decide when will the government inspect the project
     def inspect(self, policy, episode):
 
         # Three options: fixed (every 5 periods), random_x (bernoulli probability), reach (if the performance gets to a level)
@@ -266,10 +244,11 @@ class EnvPPP():
             return 1 if self.S[1] <= level else 0
 
 
-    # Cost function
+    # Cost function depending on the incentive
     def cost(self, X):
+
         #return -self.FC*X - self.VC*X + 7*self.incentive()
-        return -self.FC*X - self.VC*X + 7*self.incentive()
+        return -self.FC*X - self.VC*X + 7*self.MIP_incentive()
 
 
     # Transition between states function
@@ -301,7 +280,7 @@ class EnvPPP():
 
     # Function to plot the important metrics of the environment
 
-    def show(self, inspect, maint, perf):
+    def show_performance(self, inspect, maint, perf):
         fig = plt.figure(figsize =(10, 5))
         ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
 
@@ -315,9 +294,37 @@ class EnvPPP():
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective" , fontsize=15)
         plt.grid(True)
-        plt.savefig('Leader perspective.png')
+        plt.savefig('Performance.png')
         plt.show()
-        # plt.close(fig)
+    
+    # Function to plot the historic cashflow
+
+    def show_cashflow(self, cashflow):
+        fig = plt.figure(figsize =(10, 5))
+        ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+
+        ax.plot(range(self.episodes), cashflow, 'k--', linewidth = 1.5, label = "Agent's Cashflow")
+        ax.set_xlabel("Period", size=15)
+        ax.set_ylabel("Cashflow ($)", size=15)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
+        plt.suptitle("Leader's perspective" , fontsize=15)
+        plt.grid(True)
+        plt.savefig('Cashflow.png')
+        plt.show()
+
+    def show_rewards(self, rewards, periods):
+        fig = plt.figure(figsize =(10, 5))
+        ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+
+        ax.plot(range(periods), rewards, 'k--', linewidth = 1.5, label = "Agent's Cashflow")
+        ax.set_xlabel("Period", size=15)
+        ax.set_ylabel("Cashflow ($)", size=15)
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
+        plt.suptitle("Leader's perspective" , fontsize=15)
+        plt.grid(True)
+        plt.savefig('Rewards.png')
+        plt.show()
+
 
 	# Function to iterate the environment
 
@@ -326,6 +333,7 @@ class EnvPPP():
         cashflow = []
         inspections = []
         maintenances = []
+        rewards = []
 
 
         for episode in range(self.episodes):
@@ -342,7 +350,6 @@ class EnvPPP():
             # Update of the q_table
             prev_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
             current_q = self.q_table[prev_state, X]
-            performance.append(self.S[1])
 
             values = self.transition(X)
             reward = values[1]
@@ -354,58 +361,55 @@ class EnvPPP():
             
             self.q_table [prev_state, X] = new_q
 
+            performance.append(self.S[1])
             cashflow.append(self.S[2])
-
-        '''
-        plt.subplot(2,1,1)
-        plt.plot(performance)
-        plt.subplot(2,1,2)
-        plt.plot(cashflow)
-        plt.show()
-        '''
-        
-
-        if self.SINGLE_REPLICA:
-            self.show(inspections, maintenances, performance)
+            rewards.append(round(reward,5))
 
 
-        return cashflow, inspections, maintenances, performance
+
+        return cashflow, inspections, maintenances, performance, rewards
 
 
+
+# ----------------------- DECLARING, INITIALIZING AND RUNNING THE ENVIRONMENT -----------------------
+
+# Declaration of the instance
 myPPP = EnvPPP()
 
-if myPPP.SINGLE_REPLICA:
-    # Single replica
-    myPPP.run()
+# Declaration of the cumulative q_table, in the next replica, the agent will take the q_table that the previous agent left
+new_q_table =  myPPP.q_table
 
-else:
-    # MONTECARLO SIMULATION
+# Number of simulations to be run. The self.episodes will be ran the times in the parameter
+num_simulations = int(3)
 
-    num_simulations = 3000
-    periods = range(1, myPPP.episodes+1)
+# Cumulative rewards in order to know how the agent is learning
+rewards = []
 
-    fig = plt.figure()
-    plt.title("PPP Simulation " + str(num_simulations) + " Paths")
-    plt.xlabel("Period")
-    plt.ylabel("Balance [$]")
+# Number of periods of each simulation. It depends on the class atribute
 
+
+for i in range (num_simulations):
     myPPP = EnvPPP()
-    cashflow = []
-    cashflow = myPPP.run()
-    new_q_table=  myPPP.q_table
+    myPPP.q_table = new_q_table
+    values = []
+    values = myPPP.run()
+
+    new_q_table = myPPP.q_table
+
+    rewards.extend(values[4])
+
+# The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward(4)]
+myPPP.show_performance(values[1], values[2], values[3])
+myPPP.show_cashflow(values[0])
+myPPP.show_rewards(rewards, num_simulations * myPPP.episodes)
 
 
-    for i in range (num_simulations):
-        myPPP = EnvPPP()
-        myPPP.q_table = new_q_table
-        cashflow = []
-        cashflow = myPPP.run()
+# Section of the code that prints the decisions made by the agent at the end of the simulation among 30 periods
 
-        new_q_table = myPPP.q_table
+dictMaints = {}
+for i in range(len(values[2])):
+    dictMaints['x_' + str(i)] = values[2][i]
 
-        #plt.plot(periods, cashflow)
+print(dictMaints)
+print(len(rewards))
 
-    print(new_q_table)
-    myPPP.show(cashflow[1], cashflow[2], cashflow[3])
-
-    #plt.show()
