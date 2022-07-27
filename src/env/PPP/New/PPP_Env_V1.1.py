@@ -15,8 +15,7 @@ Next steps:
     1. Let the agent make random decisions with the epsilon parameter
     2. Review Juan's library to change the inputs when creating the instance 
     3. Keep improving the graphics
-    4. Graph the historic rewards
-    5. Review why the random seed is affecting the behaviour 
+    4. Review why the random seed is affecting the behaviour 
 '''
 
 '''
@@ -51,7 +50,7 @@ class EnvPPP():
         self.S = [0, 1, 2]                          # Current state (for when running [Age, Performance, Budget]
         self.T = 30								    # Planning horizon
         self.W = [0, 1] 		                    # [shock?, inspection?
-        self.L = range(1,6)									# discrete levels
+        self.L = range(1,6)							# discrete levels of performance
 
 
         self.FC = 1                                 # Fixed maintenance cost
@@ -411,5 +410,4 @@ for i in range(len(values[2])):
     dictMaints['x_' + str(i)] = values[2][i]
 
 print(dictMaints)
-print(len(rewards))
 
