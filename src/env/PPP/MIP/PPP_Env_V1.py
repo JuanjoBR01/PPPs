@@ -163,7 +163,7 @@ class EnvPPP():
             count_l = 0
             for gamma_val in self.gamma:
                 if self.get_level(gamma_val) == level:
-                    average_l += 7*self.incentive() 
+                    average_l += 7*self.incentive(gamma_val) 
                     count_l += 1
             print(average_l/count_l)
             self.bond[level] = average_l/count_l
@@ -200,13 +200,12 @@ class EnvPPP():
         return self.bond[self.get_level(self.S[1])]
 
 
-    def incentive(self, choice='sigmoid'):
+    def incentive(self, perf,choice='sigmoid'):
 
         # Samuel has discretized the function according to the performance level
         if self.W[1] == 0:
             return 0
 
-        perf = self.S[1]
         if choice=='sigmoid':
             rate, offset = 10, self.threshold
             incent = 1/( 1 + exp(-rate*(perf-offset)))			
@@ -426,16 +425,15 @@ for i in range (num_simulations):
 
     rewards.extend(values[4])
     
-#    if myPPP.epsilon > 0.15:
-#         myPPP.epsilon *= 0.998
-#     else: 
-#         myPPP.epsilon = 0.15
-
-#     if myPPP.epsilon <= 0.15 and myPPP.epsilon > 0.08:
-#         myPPP.epsilon *= 0.5
-#     elif myPPP.epsilon < 0.08: 
-#         myPPP.epsilon = 0.15
-#     thyEpsilon = myPPP.epsilon
+    if myPPP.epsilon > 0.15:
+         myPPP.epsilon *= 0.998
+    else: 
+         myPPP.epsilon = 0.15
+    if myPPP.epsilon <= 0.15 and myPPP.epsilon > 0.08:
+         myPPP.epsilon *= 0.5
+    elif myPPP.epsilon < 0.08: 
+         myPPP.epsilon = 0.15
+    thyEpsilon = myPPP.epsilon
     
     
 
