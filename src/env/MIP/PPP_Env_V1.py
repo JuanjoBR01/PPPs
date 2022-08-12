@@ -330,7 +330,7 @@ class EnvPPP():
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective" , fontsize=15)
         plt.grid(True)
-        plt.savefig('Rewards.png')
+        #plt.savefig('Rewards.png')
         plt.show()
 
 

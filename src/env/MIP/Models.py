@@ -53,7 +53,7 @@ x_param = {'q_'+str(i-1):1 if (i % 5 == 0 and i>0) else 0 for i in range(1,I.T+1
 def follower_PPP(I,x_param):
     
     gamma = [exp(-I.Lambda*tau) for tau in range(I.T)]
-    print(gamma)
+    #print(gamma)
     
     '''delta = [exp(-I.Lambda*tau) - exp(-I.Lambda*(tau-1)) for tau in range(1,I.T)]
                 

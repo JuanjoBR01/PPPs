@@ -50,7 +50,8 @@ class EnvPPP():
         self.S = [0, 1, 2]                          # Current state (for when running [Age, Performance, Budget]
         self.T = 30								    # Planning horizon
         self.W = [0, 1] 		                    # [shock?, inspection?
-        self.L = range(1,6)							# discrete levels of performance
+        self.NUM_INTERVALS = 5
+        self.L = range(1,self.NUM_INTERVALS + 1)	# discrete levels of performance
 
 
         self.FC = 1                                 # Fixed maintenance cost
@@ -63,15 +64,14 @@ class EnvPPP():
         
         self.LEARNING_RATE = 0.1
         self.DISCOUNT = 0.9
-        self.epsilon = 0.15         
-        self.START_EPSILON_DECAYING = 1                                                                                  # Episode where epsilon begins to affect
+        self.epsilon = 0.90         
+        self.START_EPSILON_DECAYING = 1                                                                           # Episode where epsilon begins to affect
         self.END_EPSILON_DECAYING = self.T // 2                                                                   # Episode where epsilon does not affect anymore
-        self.epsilon_decay_value = self.epsilon/(self.END_EPSILON_DECAYING - self.START_EPSILON_DECAYING)                # Rate of decay of epsilon after each step
-        self.NUM_INTERVALS = 5
+        self.epsilon_decay_value = self.epsilon/(self.END_EPSILON_DECAYING - self.START_EPSILON_DECAYING)         # Rate of decay of epsilon after each step
 
         # ---- Q-Table ----
-        #self.q_table = np.random.uniform(low = -2, high = 0, size = ([self.NUM_INTERVALS] + [2]))   
-        self.q_table = np.random.uniform(low = -35, high = -34.5, size = ([self.NUM_INTERVALS] + [2]))   
+        self.q_table = np.random.uniform(low = -2, high = 0, size = ([self.NUM_INTERVALS] + [2]))   
+        #self.q_table = np.random.uniform(low = -35, high = -34.5, size = ([self.NUM_INTERVALS] + [2]))   
 
         '''
         Deterioration cycles model
@@ -117,9 +117,8 @@ class EnvPPP():
 
         self.alpha = .5		
 
-        '''
-        Social benefit related to the performance level. g_star is the expected one 
-        '''
+        
+        #Social benefit related to the performance level. g_star is the expected one 
 
         self.g = {5:2, 4:47, 3:500, 2:953, 1:998}
         # Earnings target
@@ -136,7 +135,7 @@ class EnvPPP():
         '''
 
         '''
-        Do we want to use the bond or the sigmoidal function?
+        Bond according to the scenario
                 bond = {1: {5:-29.65, 4:-27.4, 3:-4.75, 2:17.9, 1:20.15},
                 2:{5:-148.25, 4:-137, 3:-23.75, 2:89.5, 1:100.75},
                 3:{5:-296.5, 4:-274, 3:-47.5, 2:179, 1:201.5},
@@ -154,16 +153,15 @@ class EnvPPP():
         self.c_sup_i = c_sup_i[INS]
         '''
 
-        #gamma = [round(exp(-self.Lambda*tau),2) for tau in range(self.T)]
         self.gamma = [exp(-self.Lambda*tau) for tau in range(self.T+2)]
-        print(self.gamma)
+
         self.bond = {}
         for level in self.L:
             average_l = 0
             count_l = 0
             for gamma_val in self.gamma:
                 if self.get_level(gamma_val) == level:
-                    average_l += 7*self.incentive() 
+                    average_l += 7*self.incentive(gamma_val) 
                     count_l += 1
             print(average_l/count_l)
             self.bond[level] = average_l/count_l
@@ -192,7 +190,8 @@ class EnvPPP():
 
     def discretize_performance(self, perf):
         # TODO Samuel: review the MIP - The bigger level, the better for JJ, otherwise for Samuel
-        return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+        #return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+        return self.get_level(self.S[1]) - 1
 
 
     # Incentive calculated depending on the inspection    
@@ -200,13 +199,12 @@ class EnvPPP():
         return self.bond[self.get_level(self.S[1])]
 
 
-    def incentive(self, choice='sigmoid'):
+    def incentive(self, perf, choice='sigmoid'):
 
         # Samuel has discretized the function according to the performance level
         if self.W[1] == 0:
             return 0
 
-        perf = self.S[1]
         if choice=='sigmoid':
             rate, offset = 10, self.threshold
             incent = 1/( 1 + exp(-rate*(perf-offset)))			
@@ -277,7 +275,8 @@ class EnvPPP():
     def fixed_action_rule_agent(self, random_exploration):
         # According to the q_table we'll make the decision
         perf = self.S[1]
-        discrete_state = int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+        #discrete_state = int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+        discrete_state = self.get_level(perf) - 1
 
         if not random_exploration:
             return np.argmax(self.q_table[discrete_state])
@@ -303,7 +302,7 @@ class EnvPPP():
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective" , fontsize=15)
         plt.grid(True)
-        plt.savefig('Performance.png')
+        #plt.savefig('Performance.png')
         plt.show()
     
     # Function to plot the historic cashflow
@@ -318,7 +317,7 @@ class EnvPPP():
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective" , fontsize=15)
         plt.grid(True)
-        plt.savefig('Cashflow.png')
+        #plt.savefig('Cashflow.png')
         plt.show()
 
     def show_rewards(self, rewards, periods):
@@ -331,7 +330,7 @@ class EnvPPP():
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective" , fontsize=15)
         plt.grid(True)
-        plt.savefig('Rewards.png')
+        #plt.savefig('Rewards.png')
         plt.show()
 
 
@@ -363,13 +362,15 @@ class EnvPPP():
             maintenances.append(X)
 
             # Update of the q_table
-            prev_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+            #prev_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+            prev_state = self.get_level(self.S[1]) - 1
             current_q = self.q_table[prev_state, X]
 
             values = self.transition(X)
             reward = values[1]
 
-            new_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+            #new_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+            new_state = self.get_level(self.S[1]) - 1
             max_future_q = np.max(self.q_table[new_state])
             
             new_q = (1-self.LEARNING_RATE) * current_q + self.LEARNING_RATE * (reward + self.DISCOUNT * max_future_q)
@@ -395,7 +396,6 @@ class EnvPPP():
 
 # Declaration of the instance
 myPPP = EnvPPP()
-print(myPPP.bond)
 
 # Declaration of the cumulative q_table, in the next replica, the agent will take the q_table that the previous agent left
 new_q_table =  myPPP.q_table
@@ -425,18 +425,19 @@ for i in range (num_simulations):
     new_q_table = myPPP.q_table
 
     rewards.extend(values[4])
-    
-#    if myPPP.epsilon > 0.15:
-#         myPPP.epsilon *= 0.998
-#     else: 
-#         myPPP.epsilon = 0.15
 
-#     if myPPP.epsilon <= 0.15 and myPPP.epsilon > 0.08:
-#         myPPP.epsilon *= 0.5
-#     elif myPPP.epsilon < 0.08: 
-#         myPPP.epsilon = 0.15
-#     thyEpsilon = myPPP.epsilon
-    
+    ''' 
+    if myPPP.epsilon > 0.15:
+        myPPP.epsilon *= 0.998
+    else: 
+        myPPP.epsilon = 0.15
+
+    if myPPP.epsilon <= 0.15 and myPPP.epsilon > 0.08:
+        myPPP.epsilon *= 0.5
+    elif myPPP.epsilon < 0.08: 
+        myPPP.epsilon = 0.15
+    thyEpsilon = myPPP.epsilon
+    '''
     
 
 # The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward(4)]
