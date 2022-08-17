@@ -64,7 +64,7 @@ class EnvPPP():
         
         self.LEARNING_RATE = 0.1
         self.DISCOUNT = 0.9
-        self.epsilon = 0.90         
+        self.epsilon = 0.15         
         self.START_EPSILON_DECAYING = 1                                                                           # Episode where epsilon begins to affect
         self.END_EPSILON_DECAYING = self.T // 2                                                                   # Episode where epsilon does not affect anymore
         self.epsilon_decay_value = self.epsilon/(self.END_EPSILON_DECAYING - self.START_EPSILON_DECAYING)         # Rate of decay of epsilon after each step
@@ -163,7 +163,6 @@ class EnvPPP():
                 if self.get_level(gamma_val) == level:
                     average_l += 7*self.incentive(gamma_val) 
                     count_l += 1
-            print(average_l/count_l)
             self.bond[level] = average_l/count_l
 	
 
@@ -191,11 +190,14 @@ class EnvPPP():
     def discretize_performance(self, perf):
         # TODO Samuel: review the MIP - The bigger level, the better for JJ, otherwise for Samuel
         #return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
-        return self.get_level(self.S[1]) - 1
+        return self.get_level(perf) - 1
 
 
     # Incentive calculated depending on the inspection    
     def MIP_incentive(self):
+        if self.W[1] == 0:
+            return 0
+        
         return self.bond[self.get_level(self.S[1])]
 
 
@@ -251,7 +253,8 @@ class EnvPPP():
     def cost(self, X):
 
         #return -self.FC*X - self.VC*X + 7*self.incentive()
-        return -self.FC*X - self.VC*X + 7*self.MIP_incentive()
+        #return -self.FC*X - self.VC*X + 7*self.MIP_incentive()
+        return -self.FC*X - self.VC*X + self.MIP_incentive()
 
 
     # Transition between states function
@@ -280,7 +283,8 @@ class EnvPPP():
 
         if not random_exploration:
             return np.argmax(self.q_table[discrete_state])
-
+        elif self.S[2] < self.FC - self.VC:
+            return 0
         else:        
             return np.random.randint(2)
 
@@ -442,7 +446,7 @@ for i in range (num_simulations):
 
 # The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward(4)]
 myPPP.show_performance(values[1], values[2], values[3])
-#myPPP.show_cashflow(values[0])
+myPPP.show_cashflow(values[0])
 #myPPP.show_rewards(rewards, num_simulations * myPPP.T)
 
 

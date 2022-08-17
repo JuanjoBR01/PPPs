@@ -1,0 +1,9 @@
+
+Para revisar la infactibilidad que está dando la solución que tira el ambiente, usar el siguiente enlace
+https://www.gurobi.com/documentation/9.5/refman/py_model_computeiis.html
+
+Revisar el budget de ambiente para generar una solución factible inicialmente
+
+
+
+
