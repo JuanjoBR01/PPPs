@@ -3,8 +3,8 @@
     A principal-agent setting for the manteinance of a deteriorating system
  ------------------------------- Research Team ---------------------------------------
         * Camilo Gómez
-        * Samuel Rodríguez 
-        * Juan José Beltrán Ruiz 
+        * Samuel Rodríguez
+        * Juan José Beltrán Ruiz
         * Juan Betancourt
         * Martín Romero
 
@@ -13,9 +13,9 @@
 '''
 Next steps:
     1. Let the agent make random decisions with the epsilon parameter
-    2. Review Juan's library to change the inputs when creating the instance 
+    2. Review Juan's library to change the inputs when creating the instance
     3. Keep improving the graphics
-    4. Review why the random seed is affecting the behaviour 
+    4. Review why the random seed is affecting the behaviour
     5. Change the budget to be the cashfow of each period
 '''
 
@@ -28,17 +28,21 @@ Important details:
 
 # -------------------------------- lIBRARY IMPORT ---------------------------------
 
+
+from ctypes.wintypes import RGB
 from math import exp, log
+from turtle import color
 import matplotlib.pyplot as plt
 import numpy as np
 import random
-
 plt.style.use('ggplot')
+import waterfall_chart
 
 np.random.seed(10)
 random.seed(10)
 
 # -------------------------------- CLASS DEFINITION ---------------------------------
+
 
 class EnvPPP():
 
@@ -47,31 +51,38 @@ class EnvPPP():
     def __init__(self):
 
         # ---- Class Atributes ----
-        self.S = [0, 1, 2]                          # Current state (for when running [Age, Performance, Budget]
+        # Current state (for when running [Age, Performance, Budget]
+        self.S = [0, 1, 2]
         self.T = 30								    # Planning horizon
-        self.W = [0, 1] 		                    # [shock?, inspection?
+        self.W = [0, 1] 		                    # [shock?, inspection?]
         self.NUM_INTERVALS = 5
-        self.L = range(1,self.NUM_INTERVALS + 1)	# discrete levels of performance
-
+        # discrete levels of performance
+        self.L = range(1, self.NUM_INTERVALS + 1)
 
         self.FC = 1                                 # Fixed maintenance cost
-        self.VC = 1                                 # Variable maintenance cost    
+        self.VC = 1                                 # Variable maintenance cost
         self.rate = 3 								# "Slope" of sigmoidal benefit-performance function
         self.offset = 3 							# "Offset" of sigmoidal benefit-performance function
-        self.threshold = 0.6                        # Performance treshold (discrete)
+        # Performance treshold (discrete)
+        self.threshold = 0.6
 
         # ---- Hyperparameters -----
-        
+
         self.LEARNING_RATE = 0.1
         self.DISCOUNT = 0.9
-        self.epsilon = 0.15         
-        self.START_EPSILON_DECAYING = 1                                                                           # Episode where epsilon begins to affect
-        self.END_EPSILON_DECAYING = self.T // 2                                                                   # Episode where epsilon does not affect anymore
-        self.epsilon_decay_value = self.epsilon/(self.END_EPSILON_DECAYING - self.START_EPSILON_DECAYING)         # Rate of decay of epsilon after each step
+        self.epsilon = 0.15
+        # Episode where epsilon begins to affect
+        self.START_EPSILON_DECAYING = 1
+        # Episode where epsilon does not affect anymore
+        self.END_EPSILON_DECAYING = self.T // 2
+        # Rate of decay of epsilon after each step
+        self.epsilon_decay_value = self.epsilon / \
+            (self.END_EPSILON_DECAYING - self.START_EPSILON_DECAYING)
 
         # ---- Q-Table ----
-        self.q_table = np.random.uniform(low = -2, high = 0, size = ([self.NUM_INTERVALS] + [2]))   
-        #self.q_table = np.random.uniform(low = -35, high = -34.5, size = ([self.NUM_INTERVALS] + [2]))   
+        # self.q_table = np.random.uniform(low = -2, high = 0, size = ([self.NUM_INTERVALS] + [2]))
+        self.q_table = np.random.uniform(
+            low=-35, high=-34.5, size=([self.NUM_INTERVALS] + [2]))
 
         '''
         Deterioration cycles model
@@ -85,9 +96,9 @@ class EnvPPP():
 
         self.fail = .2										# failure threshold (continuous)
         self.ttf = 10.0										# time to failure
-		
-        self.Lambda = -log(self.fail)/self.ttf				# perf_tt = exp(-Lambda*tt) --> Lambda = -ln(perf_tt)/tt
-		
+
+        # perf_tt = exp(-Lambda*tt) --> Lambda = -ln(perf_tt)/tt
+        self.Lambda = -log(self.fail)/self.ttf
 
         '''
         Return's epsilon
@@ -95,8 +106,9 @@ class EnvPPP():
         self.epsilon = 1.4*100
 
         Parameter f (¿?)
-        TODO: Review exact paper   
-        self.f ={0:0,1:135,2:0,3:0,4:0,5:83.8243786129859,6:0,7:0,8:0,9:0,10:52.0483440729868,11:0,12:0,13:0,14:0,15:32.3179266648371,16:0,17:0,18:0,19:0,20:20.0668897832594,21:0,22:0,23:0,24:0,25:12.4599597539036,26:0,27:0,28:0,29:0,30:7.73665469565768}
+        TODO: Review exact paper
+        self.f ={0:0,1:135,2:0,3:0,4:0,5:83.8243786129859,6:0,7:0,8:0,9:0,10:52.0483440729868,11:0,12:0,13:0,14:0,15:32.3179266648371,
+            16:0,17:0,18:0,19:0,20:20.0668897832594,21:0,22:0,23:0,24:0,25:12.4599597539036,26:0,27:0,28:0,29:0,30:7.73665469565768}
 
         VMT modeling - Discount Factor
         self.d = {}
@@ -104,23 +116,23 @@ class EnvPPP():
             b = 10.0-2*i
             for j in range(1,31):
                 self.d[(i,j)]=(b/(1+0.1)**(j-1))
-		
 
-        # Minimum performance 
+
+        # Minimum performance
         self.minP = .6
         '''
-		
-        self.f_W = [(1, [False, False])] 					# scenarios: (prob_s, [shock, inspection])
+
+        # scenarios: (prob_s, [shock, inspection])
+        self.f_W = [(1, [False, False])]
 
         self.gamma = .9										# discount factor
-        self.v_hat = {i:0 for i in range(int(self.ttf))} 	# state value estimation
+        # state value estimation
+        self.v_hat = {i: 0 for i in range(int(self.ttf))}
 
-        self.alpha = .5		
+        self.alpha = .5
 
-        
-        #Social benefit related to the performance level. g_star is the expected one 
-
-        self.g = {5:2, 4:47, 3:500, 2:953, 1:998}
+        # Social benefit related to the performance level. g_star is the expected one
+        self.g = {5: 2, 4: 47, 3: 500, 2: 953, 1: 998}
         # Earnings target
         self.g_star = 595
 
@@ -161,15 +173,13 @@ class EnvPPP():
             count_l = 0
             for gamma_val in self.gamma:
                 if self.get_level(gamma_val) == level:
-                    average_l += 7*self.incentive(gamma_val) 
+                    average_l += 7*self.incentive(gamma_val)
                     count_l += 1
             self.bond[level] = average_l/count_l
-	
 
     def reset(self):
 
-        return [0,1,2]
-
+        return [0, 1, 2]
 
     def get_level(self, perf):
         if perf < .2:
@@ -183,23 +193,20 @@ class EnvPPP():
         else:
             return 5
 
-
-
     # Function that returns the incentive according to the performance level
 
     def discretize_performance(self, perf):
         # TODO Samuel: review the MIP - The bigger level, the better for JJ, otherwise for Samuel
-        #return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+        # return int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
         return self.get_level(perf) - 1
 
+    # Incentive calculated depending on the inspection
 
-    # Incentive calculated depending on the inspection    
     def MIP_incentive(self):
         if self.W[1] == 0:
             return 0
-        
-        return self.bond[self.get_level(self.S[1])]
 
+        return self.bond[self.get_level(self.S[1])]
 
     def incentive(self, perf, choice='sigmoid'):
 
@@ -207,30 +214,31 @@ class EnvPPP():
         if self.W[1] == 0:
             return 0
 
-        if choice=='sigmoid':
+        if choice == 'sigmoid':
             rate, offset = 10, self.threshold
-            incent = 1/( 1 + exp(-rate*(perf-offset)))			
+            incent = 1/(1 + exp(-rate*(perf-offset)))
 
-
-        elif choice=='linear':
+        elif choice == 'linear':
             slope, offset = 1, 0
             incent = offset + slope*perf
-        
+
         return incent
 
+    '''
     # Function that deteriorates the system
     def deteriorate(self):
-        age = self.S[0]		
+        age = self.S[0]
         shock = self.W[0]
 
-        #Lambda = -log(self.threshold)/10   	# perf_tt = exp(-Lambda*tt) --> Lambda = -ln(perf_tt)/tt x
-		
+        # Lambda = -log(self.threshold)/10   	# perf_tt = exp(-Lambda*tt) --> Lambda = -ln(perf_tt)/tt x
+
         if shock:
             delta_perf = 3*random()
         else:
             delta_perf = exp(-self.Lambda*age) - exp(-self.Lambda*(age-1))
 
         return delta_perf
+    '''
 
     # Function to decide when will the government inspect the project
     def inspect(self, policy, episode):
@@ -242,158 +250,164 @@ class EnvPPP():
             return 1 if episode > 0 and aux % int(policy[6:]) == 0 else 0
 
         elif policy[:6] == 'random':
-            return round( random() < int(policy[7:])/100.0)
-        
+            return round(random() < int(policy[7:])/100.0)
+
         elif policy[:5] == 'reach':
             level = int(policy[6:]) / 100
             return 1 if self.S[1] <= level else 0
 
-
     # Cost function depending on the incentive
-    def cost(self, X):
 
-        #return -self.FC*X - self.VC*X + 7*self.incentive()
-        #return -self.FC*X - self.VC*X + 7*self.MIP_incentive()
+    def cost(self, X):
+        # return -self.FC*X - self.VC*X + 7*self.incentive()
+        # return -self.FC*X - self.VC*X + 7*self.MIP_incentive()
         return -self.FC*X - self.VC*X + self.MIP_incentive()
 
-
     # Transition between states function
+
     def transition(self, X):
-        delta_perf = self.deteriorate()
+        # delta_perf = self.deteriorate()
         bud = self.cost(X)
 
         if X:
             self.S = [0, 1, self.S[2]+bud]
         else:
 
-            #self.S = [self.S[0]+1, self.S[1]+delta_perf, self.S[2]+bud]
-            self.S[0] = self.S[0] + 1
+            self.S[0] += 1
             self.S[1] = self.gamma[self.S[0]+1]
-            self.S[2] = self.S[2]+bud
-            
+            self.S[2] += bud
 
-        return delta_perf, bud
+        return bud
 
     # Action function
     def fixed_action_rule_agent(self, random_exploration):
-        # According to the q_table we'll make the decision
-        perf = self.S[1]
-        #discrete_state = int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
-        discrete_state = self.get_level(perf) - 1
+
+        # discrete_state = int(min(max(np.ceil(perf*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+        discrete_state = self.get_level(self.S[1]) - 1
+
+        if self.S[2] < self.FC + self.VC:
+            return 0
 
         if not random_exploration:
             return np.argmax(self.q_table[discrete_state])
-        elif self.S[2] < self.FC - self.VC:
-            return 0
-        else:        
+        else:
             return np.random.randint(2)
-
-
 
     # Function to plot the important metrics of the environment
 
     def show_performance(self, inspect, maint, perf):
-        fig = plt.figure(figsize =(10, 5))
+        fig = plt.figure(figsize=(10, 5))
         ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
 
-        Inspection = {t:(t,inspect[t]) for t in range(self.T) if inspect[t]}
-        Maintenance = {t:(t,maint[t]) for t in range(self.T) if maint[t]}
-        ax.plot(range(self.T), perf, 'k--', linewidth = 1.5, label = "Equilibrium solution for both parties")
-        ax.plot([Inspection[t][0] for t in Inspection], [Inspection[t][1] for t in Inspection], 'rs', label = "Inspection actions")
-        ax.plot([Maintenance[t][0] for t in Maintenance], [Maintenance[t][1] for t in Maintenance], 'b^', label = "Maintenance actions")
+        Inspection = {t: (t, inspect[t]) for t in range(self.T) if inspect[t]}
+        Maintenance = {t: (t, maint[t]) for t in range(self.T) if maint[t]}
+        ax.plot(range(self.T), perf, 'k--', linewidth=1.5,
+                label="Equilibrium solution for both parties")
+        ax.plot([Inspection[t][0] for t in Inspection], [Inspection[t][1]
+                for t in Inspection], 'rs', label="Inspection actions")
+        ax.plot([Maintenance[t][0] for t in Maintenance], [Maintenance[t][1]
+                for t in Maintenance], 'b^', label="Maintenance actions")
         ax.set_xlabel("Period", size=15)
         ax.set_ylabel("Road's Performance", size=15)
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
-        plt.suptitle("Leader's perspective" , fontsize=15)
+        plt.suptitle("Leader's perspective", fontsize=15)
         plt.grid(True)
-        #plt.savefig('Performance.png')
+        # plt.savefig('Performance.png')
         plt.show()
-    
+
     # Function to plot the historic cashflow
-
-    def show_cashflow(self, cashflow):
-        fig = plt.figure(figsize =(10, 5))
+    def show_budget(self, cashflow):
+        fig = plt.figure(figsize=(10, 5))
         ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
 
-        ax.plot(range(self.T), cashflow, 'k--', linewidth = 1.5, label = "Agent's Cashflow")
+        ax.plot(range(self.T), cashflow, 'k--',
+                linewidth=1.5, label="Agent's Budget")
         ax.set_xlabel("Period", size=15)
         ax.set_ylabel("Cashflow ($)", size=15)
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
-        plt.suptitle("Leader's perspective" , fontsize=15)
+        plt.suptitle("Leader's perspective", fontsize=15)
         plt.grid(True)
-        #plt.savefig('Cashflow.png')
+        # plt.savefig('Cashflow.png')
         plt.show()
 
-    def show_rewards(self, rewards, periods):
-        fig = plt.figure(figsize =(10, 5))
-        ax = fig.add_axes([0.1, 0.1, 0.6, 0.75])
+    def show_cashflows(self, cashflows):
 
-        ax.plot(range(periods), rewards, 'k--', linewidth = 1.5, label = "Agent's Cashflow")
-        ax.set_xlabel("Period", size=15)
-        ax.set_ylabel("Cashflow ($)", size=15)
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
-        plt.suptitle("Leader's perspective" , fontsize=15)
-        plt.grid(True)
-        #plt.savefig('Rewards.png')
+        pos = []
+        neg = []
+
+        for i in range(self.T):
+            if cashflows[i] < 0:
+                neg.append(cashflows[i])
+                pos.append(0)
+            elif cashflows[i] > 0:
+                pos.append(cashflows[i])    
+                neg.append(0)
+            else:
+                pos.append(0)
+                neg.append(0)
+ 
+        fig = plt.subplots(figsize =(8, 5))
+        p1 = plt.bar(range(self.T), pos, width=0.35, color = 'green')
+        p2 = plt.bar(range(self.T), neg, width=0.35,bottom = pos, color = 'red')
+ 
+        plt.ylabel('Cashflow ($)')
+        plt.xlabel('Period')
+        plt.title("Agent's Cashflows")
+
         plt.show()
 
-
-	# Function to iterate the environment
-
+    # Function to iterate the environment
     def run(self, state):
-        #performance = [state[1]]
-        #cashflow = [state[2]]
+        # performance = [state[1]]
+        # cashflow = [state[2]]
         performance = []
         cashflow = []
         inspections = []
         maintenances = []
-        rewards = []
-
+        cashflow = []
+        budget = []
 
         for episode in range(self.T):
 
-            if np.random.random()  > self.epsilon:                              # Decide if a random exploration is done
+            # Decide if a random exploration is done
+            if np.random.random() > self.epsilon:
                 X = self.fixed_action_rule_agent(False)
             else:
                 X = self.fixed_action_rule_agent(True)
 
-
-            #self.W[1] = self.inspect('random_50', episode)
-            #self.W[1] = self.inspect('reach_99', episode)
+            # self.W[1] = self.inspect('random_50', episode)
+            # self.W[1] = self.inspect('reach_99', episode)
             self.W[1] = self.inspect('fixed_5', episode)
 
             inspections.append(self.W[1])
             maintenances.append(X)
 
             # Update of the q_table
-            #prev_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+            # prev_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
             prev_state = self.get_level(self.S[1]) - 1
             current_q = self.q_table[prev_state, X]
 
-            values = self.transition(X)
-            reward = values[1]
+            reward = self.transition(X)
 
-            #new_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
+            # new_state = int(min(max(np.ceil(self.S[1]*self.NUM_INTERVALS)-1, 0), self.NUM_INTERVALS-1))
             new_state = self.get_level(self.S[1]) - 1
             max_future_q = np.max(self.q_table[new_state])
-            
-            new_q = (1-self.LEARNING_RATE) * current_q + self.LEARNING_RATE * (reward + self.DISCOUNT * max_future_q)
-            
-            self.q_table [prev_state, X] = new_q
-            
+
+            new_q = (1-self.LEARNING_RATE) * current_q + \
+                self.LEARNING_RATE * (reward + self.DISCOUNT * max_future_q)
+
+            self.q_table[prev_state, X] = new_q
+
             if episode == 0:
-                rewards.append(round(reward,5))
                 performance.append(self.S[1])
-                cashflow.append(self.S[2])
+                budget.append(self.S[2])
+                cashflow.append(round(reward, 5))
             else:
                 performance.append(self.S[1])
-                cashflow.append(self.S[2])
-                rewards.append(round(reward,5))
+                budget.append(self.S[2])
+                cashflow.append(round(reward, 5))
 
-
-
-        return cashflow, inspections, maintenances, performance, rewards
-
+        return budget, inspections, maintenances, performance, cashflow
 
 
 # ----------------------- DECLARING, INITIALIZING AND RUNNING THE ENVIRONMENT -----------------------
@@ -402,25 +416,18 @@ class EnvPPP():
 myPPP = EnvPPP()
 
 # Declaration of the cumulative q_table, in the next replica, the agent will take the q_table that the previous agent left
-new_q_table =  myPPP.q_table
+new_q_table = myPPP.q_table
 
 # Number of simulations to be run. The self.T will be ran the times in the parameter
 num_simulations = int(1e4)
 
-# Cumulative rewards in order to know how the agent is learning
-rewards = []
-
-# Number of periods of each. It depends on the class atribute
-
-thyEpsilon = 1
-for i in range (num_simulations):
+for i in range(num_simulations):
     state = myPPP.reset()
-   # myPPP.epsilon = thyEpsilon
+
     myPPP.S = state
 
     if i == num_simulations-1:
         myPPP.epsilon = 0
-
 
     myPPP.q_table = new_q_table
     values = []
@@ -428,26 +435,11 @@ for i in range (num_simulations):
 
     new_q_table = myPPP.q_table
 
-    rewards.extend(values[4])
 
-    ''' 
-    if myPPP.epsilon > 0.15:
-        myPPP.epsilon *= 0.998
-    else: 
-        myPPP.epsilon = 0.15
-
-    if myPPP.epsilon <= 0.15 and myPPP.epsilon > 0.08:
-        myPPP.epsilon *= 0.5
-    elif myPPP.epsilon < 0.08: 
-        myPPP.epsilon = 0.15
-    thyEpsilon = myPPP.epsilon
-    '''
-    
-
-# The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward(4)]
+# The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward -or cashflow- (4)]
 myPPP.show_performance(values[1], values[2], values[3])
-myPPP.show_cashflow(values[0])
-#myPPP.show_rewards(rewards, num_simulations * myPPP.T)
+myPPP.show_budget(values[0])
+#myPPP.show_cashflows(values[4])
 
 
 # Section of the code that prints the decisions made by the agent at the end of the simulation among 30 periods
