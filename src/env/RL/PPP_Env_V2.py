@@ -250,7 +250,8 @@ class EnvPPP():
             return 1 if episode > 0 and aux % int(policy[6:]) == 0 else 0
 
         elif policy[:6] == 'random':
-            return round(random() < int(policy[7:])/100.0)
+            aux = random.uniform(0,100)
+            return 1 if aux < int(policy[7:]) else 0
 
         elif policy[:5] == 'reach':
             level = int(policy[6:]) / 100
@@ -302,7 +303,7 @@ class EnvPPP():
         Inspection = {t: (t, inspect[t]) for t in range(self.T) if inspect[t]}
         Maintenance = {t: (t, maint[t]) for t in range(self.T) if maint[t]}
         ax.plot(range(self.T), perf, 'k--', linewidth=1.5,
-                label="Equilibrium solution for both parties")
+                label="Performance level")
         ax.plot([Inspection[t][0] for t in Inspection], [Inspection[t][1]
                 for t in Inspection], 'rs', label="Inspection actions")
         ax.plot([Maintenance[t][0] for t in Maintenance], [Maintenance[t][1]
@@ -312,7 +313,7 @@ class EnvPPP():
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective", fontsize=15)
         plt.grid(True)
-        # plt.savefig('Performance.png')
+        plt.savefig('Performance.png')
         plt.show()
 
     # Function to plot the historic cashflow
@@ -327,7 +328,7 @@ class EnvPPP():
         ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective", fontsize=15)
         plt.grid(True)
-        # plt.savefig('Cashflow.png')
+        plt.savefig('Cashflow.png')
         plt.show()
 
     def show_cashflows(self, cashflows):
@@ -375,9 +376,9 @@ class EnvPPP():
             else:
                 X = self.fixed_action_rule_agent(True)
 
-            # self.W[1] = self.inspect('random_50', episode)
-            # self.W[1] = self.inspect('reach_99', episode)
-            self.W[1] = self.inspect('fixed_5', episode)
+            self.W[1] = self.inspect('random_10', episode)
+            #self.W[1] = self.inspect('reach_50', episode)
+            #self.W[1] = self.inspect('fixed_1', episode)
 
             inspections.append(self.W[1])
             maintenances.append(X)
