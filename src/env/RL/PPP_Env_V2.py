@@ -36,8 +36,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import random
 plt.style.use('ggplot')
-import waterfall_chart
-
+from gurobipy import *
 np.random.seed(10)
 random.seed(10)
 
@@ -132,7 +131,7 @@ class EnvPPP():
         self.alpha = .5
 
         # Social benefit related to the performance level. g_star is the expected one
-        self.g = {5: 2, 4: 47, 3: 500, 2: 953, 1: 998}
+        self.g = {1: 2, 2: 47, 3: 500, 4: 953, 5: 998}
         # Earnings target
         self.g_star = 595
 
@@ -376,9 +375,9 @@ class EnvPPP():
             else:
                 X = self.fixed_action_rule_agent(True)
 
-            self.W[1] = self.inspect('random_10', episode)
+            #self.W[1] = self.inspect('random_10', episode)
             #self.W[1] = self.inspect('reach_50', episode)
-            #self.W[1] = self.inspect('fixed_1', episode)
+            self.W[1] = self.inspect('fixed_5', episode)
 
             inspections.append(self.W[1])
             maintenances.append(X)
@@ -420,7 +419,7 @@ myPPP = EnvPPP()
 new_q_table = myPPP.q_table
 
 # Number of simulations to be run. The self.T will be ran the times in the parameter
-num_simulations = int(1e4)
+num_simulations = int(1e3)
 
 for i in range(num_simulations):
     state = myPPP.reset()
@@ -438,15 +437,217 @@ for i in range(num_simulations):
 
 
 # The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward -or cashflow- (4)]
-myPPP.show_performance(values[1], values[2], values[3])
-myPPP.show_budget(values[0])
+#myPPP.show_performance(values[1], values[2], values[3])
+#myPPP.show_budget(values[0])
 #myPPP.show_cashflows(values[4])
 
 
 # Section of the code that prints the decisions made by the agent at the end of the simulation among 30 periods
 
 dictMaints = {}
+dictInspections = {}
 for i in range(len(values[2])):
     dictMaints['x_' + str(i)] = values[2][i]
+    dictInspections['q_' + str(i)] = values[1][i]
 
-print(dictMaints)
+
+
+
+
+def follower_PPP(x_param, maintenances):
+    print(x_param)
+    gamma = myPPP.gamma
+    
+
+
+    fc = [myPPP.FC for _ in range(myPPP.T)]
+    vc = [myPPP.VC for _ in range(myPPP.T)]
+
+    xi_L = {1:0, 2:.21, 3:.41, 4:.61, 5:.81}
+    xi_U = {1:.2, 2:.4, 3:.6, 4:.8, 5:1}   
+
+    bond = myPPP.bond
+
+
+    Follower = Model('Follower_PPP')
+    
+    '''
+    FOLLOWER VARIABLES
+    '''
+   
+    x = {t:Follower.addVar(vtype=GRB.BINARY, name="x_"+str(t)) for t in range(myPPP.T)}                             # Whether a maintenance action is applied at t
+    y = {t:Follower.addVar(vtype=GRB.INTEGER, name="y_"+str(t)) for t in range(myPPP.T)}					             # Number of periods after last restoration
+    b = {(t,tau):Follower.addVar(vtype=GRB.BINARY, name="b_"+str((t,tau))) for t in range(myPPP.T) for tau in range(myPPP.T)}    # Whether yt=tau
+    z = {(t,l):Follower.addVar(vtype=GRB.BINARY, name="z_"+str((t,l))) for t in range(myPPP.T) for l in myPPP.L}		      # Whether system is at service level l at t
+    v = {t:Follower.addVar(vtype=GRB.CONTINUOUS, name="v_"+str(t)) for t in range(myPPP.T)}							# Performance at t
+    pplus = {t:Follower.addVar(vtype=GRB.CONTINUOUS, name="earn_"+str(t)) for t in range(myPPP.T)}				# Earnings at t
+    pminus = {t:Follower.addVar(vtype=GRB.CONTINUOUS, name="spend_"+str(t)) for t in range(myPPP.T)}				# Expenditures at t
+    pdot = {t:Follower.addVar(vtype=GRB.CONTINUOUS, name="cash_"+str(t)) for t in range(myPPP.T)}				# Money at t
+    w = {t:Follower.addVar(vtype=GRB.INTEGER, name="w_"+str(t)) for t in range(myPPP.T)}							# Linearization of y*x
+    u = {t:Follower.addVar(vtype=GRB.CONTINUOUS, name="u_"+str(t)) for t in range(myPPP.T)}						# Lineartization for v*x
+    aux = {(t,l):Follower.addVar(vtype=GRB.BINARY, name="aux_"+str((t,l))) for t in range(myPPP.T) for l in myPPP.L}              # variable for linearization ztl*qt
+    Follower.update()
+    '''
+    OBJECTIVE
+    '''
+    #Follower Objective
+    Follower.setObjective(-quicksum(pplus[t]-pminus[t] for t in range(myPPP.T)), GRB.MINIMIZE)
+    '''
+    FOLLOWER CONSTRAINTS
+    '''
+    #Initialization
+    Follower.addConstr(y[0] == 0, "iniY") 
+    Follower.addConstr(w[0] == 0, "iniW") 	
+    Follower.addConstr(u[0] == 0, "iniU") 
+    #Follower.addConstr(pdot[0] == pplus[0] - pminus[0], "cash_"+str(0)) 
+    Follower.addConstr(pdot[0] == myPPP.S[2], "cash_"+str(0))
+    
+    for t in range(myPPP.T):
+        if t>0:   
+            # Restoration inventory
+            Follower.addConstr(y[t] == y[t-1] + 1 - w[t] - x[t], "inv_"+str(t))
+            
+            # Linearization of w (for inventory)
+            Follower.addConstr(w[t] <= y[t-1], "linW1_"+str(t))
+            Follower.addConstr(w[t] >= y[t-1] - myPPP.T*(1-x[t]), "linW2_"+str(t))
+            Follower.addConstr(w[t] <= myPPP.T*x[t], "linW3_"+str(t))
+            
+            # Linearization for v (to get ObjFcn right)
+            Follower.addConstr(u[t] <= v[t], "linU1_"+str(t))
+            Follower.addConstr(u[t] >= v[t] - (1-x[t]), "linU2_"+str(t))
+            Follower.addConstr(u[t] <= x[t], "linU3_"+str(t))
+            
+            # Update available cash
+            Follower.addConstr(pdot[t] == pdot[t-1] + pplus[t] - pminus[t], "cash_"+str(t))
+            
+        # Mandatory to improve the performance if it is below the minimum
+        #HPR.addConstr(v[t] >= myPPP.minP, "minPerf_"+str(t))
+        
+        # Binarization of y (to retrieve performance)
+        Follower.addConstr(y[t] == quicksum(tau*b[t,tau] for tau in range(myPPP.T)), "binY1_"+str(t))
+        Follower.addConstr(quicksum(b[t,tau] for tau in range(myPPP.T)) == 1, "binY2_"+str(t))
+        
+        # Quantification of v (get performance)
+        Follower.addConstr(v[t] == quicksum(gamma[tau]*b[t,tau] for tau in range(myPPP.T)), "quantV_"+str(t))
+        
+        # Linearization for service level
+        Follower.addConstr(v[t] <= quicksum(xi_U[l]*z[t,l] for l in myPPP.L), "rangeU_"+str(t))
+        Follower.addConstr(v[t] >= quicksum(xi_L[l]*z[t,l] for l in myPPP.L), "rangeL_"+str(t))
+        
+        # Specification of service-level (ranges)
+        Follower.addConstr(quicksum(z[t,l] for l in myPPP.L) == 1, "1_serv_"+str(t))
+        
+        
+        # Profit (budget balance)
+        #HPR.addConstr(pplus[t] == myPPP.alpha + myPPP.f[t] + quicksum((myPPP.d[l,t+1]+myPPP.k[t])*z[t,l] for l in myPPP.L), "earn_"+str(t))
+        Follower.addConstr(pminus[t] == (fc[t]+vc[t])*x[t]-vc[t]*u[t], "spend_"+str(t))
+        Follower.addConstr(pminus[t] <= pdot[t] , "bud_"+str(t))
+        
+    # Return IMPORTANTEEEEEEEE
+    #Follower.addConstr(quicksum(pplus[t] for t in range(myPPP.T)) >= (1+1.4*100)*quicksum(pminus[t] for t in range(myPPP.T)), "return")
+    
+    #Earnings quicksum(q[t]*z[t,l]*k[l] for l in myPPP.L) linealization
+    for t in range(myPPP.T):
+        for l in myPPP.L:
+            Follower.addConstr(aux[t,l] <= x_param["q_"+str(t)], name = "binaux1_"+str((t,l)))
+            Follower.addConstr(aux[t,l] <= z[t,l], name = "binaux2_"+str((t,l)))
+            Follower.addConstr(aux[t,l] >= x_param["q_"+str(t)] + z[t,l] - 1, name = "binaux3_"+str((t,l)))
+    
+    for t in range(myPPP.T):
+        Follower.addConstr(pplus[t] == quicksum(aux[t,l]*bond[l] for l in myPPP.L), name = "Agents_earnings_"+str(t)) #myPPP.a
+    '''
+    for t in myPPP.T:
+        for l in myPPP.L:
+            Follower.addConstr(x_param["aux_"+str((t,l))] <= z[t,l], name = "binaux2_"+str((t,l)))
+            Follower.addConstr(x_param["aux_"+str((t,l))] >= x_param["q_"+str(t)] + z[t,l] - 1, name = "binaux3_"+str((t,l)))
+    
+    for t in myPPP.T:
+        Follower.addConstr(pplus[t] == myPPP.a + quicksum(x_param["q_"+str(t)]*z[t,l]*myPPP.bond[l] for l in myPPP.L), name = "Agents_earnings_"+str(t))
+    '''
+
+    if maintenances:
+        thyMaintenance = maintenances
+        for name in thyMaintenance.keys():
+             Follower.addConstr(Follower.getVarByName(name) == thyMaintenance[name])
+
+    Follower.update() 
+
+    return Follower
+
+def comparison(policy, inspections, maintenances):
+    # Status 2: feasible
+
+    pareto = {"Principal": [], "Agent": []}
+
+    gap_maint_agent = 0
+    gap_maint_principal = 0
+    gap_not_maint_principal = 0
+    gap_not_maint_agent = 0
+    it = 0
+    for case in [maintenances, {}]:
+        Follower = follower_PPP(inspections, case)
+        Follower.optimize()
+        if Follower.status == 2:
+            it += 1
+            social_benefit = sum(myPPP.g[l]*Follower.getVarByName("z_"+str((t,l))).x for l in myPPP.L for t in range(myPPP.T)) 
+            cummulative_budget = -Follower.objVal
+
+            if case:
+                pareto["Principal"].append((social_benefit, "b", "envMaintenance"))
+                pareto["Agent"].append((cummulative_budget, "b", "envMaintenance"))
+                gap_maint_principal = social_benefit
+                gap_maint_agent =   cummulative_budget
+            else:
+                pareto["Principal"].append((social_benefit, "r", "MIPMaintenance"))
+                pareto["Agent"].append((cummulative_budget, "r", "MIPMaintenance"))
+                gap_not_maint_principal = social_benefit
+                gap_not_maint_agent =   cummulative_budget
+
+
+    if it == 2:
+        gap_principal = abs(gap_maint_principal - gap_not_maint_principal) / abs(gap_not_maint_principal)
+        gap_agent = abs(gap_maint_agent - gap_not_maint_agent) / abs(gap_not_maint_agent)
+    else:
+        gap_principal = "No gap"
+        gap_agent = "No gap"
+
+    x_em = [pareto["Principal"][i][0] for i in range(len(pareto["Principal"])) if pareto["Principal"][i][1] == "b"]
+    x_MIPm = [pareto["Principal"][i][0] for i in range(len(pareto["Principal"])) if pareto["Principal"][i][1] == "r"]
+    y_em = [pareto["Agent"][i][0] for i in range(len(pareto["Agent"])) if pareto["Agent"][i][1] == "b"]
+    y_MIPm = [pareto["Agent"][i][0] for i in range(len(pareto["Agent"])) if pareto["Agent"][i][1] == "r"]
+    # col_ = [pareto["Principal"][i][1] for i in range(len(pareto["Principal"]))]
+   
+    #plt.scatter(x, y, c = col_, label = "Principal's vs. Agent Objective", s = 7)
+    plt.scatter(x_em, y_em, c = "b", label = "envMaintenance", s = 7)
+    plt.scatter(x_MIPm, y_MIPm, c = "r", label = "MIPMaintenance", s = 7)
+
+
+    for x,y in zip(x_em,y_em):
+            label = str((round(x,2),round(y,2)))
+            plt.annotate(label, # this is the text
+                        (x,y), # these are the coordinates to position the label
+                        textcoords="offset points", # how to position the text
+                        xytext=(0,10), # distance from text to points (x,y)
+                        ha='center') # horizontal alignment can be left, right or center
+
+    for x,y in zip(x_MIPm,y_MIPm):
+            label = str((round(x,2),round(y,2)))
+            plt.annotate(label, # this is the text
+                        (x,y), # these are the coordinates to position the label
+                        textcoords="offset points", # how to position the text
+                        xytext=(0,10), # distance from text to points (x,y)
+                        ha='center') # horizontal alignment can be left, right or center
+
+    plt.legend(loc="best")
+    plt.rcParams.update({'figure.figsize':(10,8), 'figure.dpi':100})
+    plt.title("Principal's vs. Agent Objective_"+str(policy)+"_Gap: "+str(round(gap_agent,4)))
+    plt.xlabel("Principal's objective")
+    plt.ylabel("Agent's objective")
+    save = True
+    if save:
+        plt.savefig("Principal's vs. Agent Objective_"+str(policy)+'.png')
+    plt.show()
+            
+
+
+comparison("Fixed_5", dictInspections, dictMaints)
