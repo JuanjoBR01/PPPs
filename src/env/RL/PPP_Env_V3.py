@@ -584,7 +584,7 @@ def comparison(policy, inspections, maintenances):
 # ----------------------- DECLARING, INITIALIZING AND RUNNING THE ENVIRONMENT -----------------------
 
 # Policies to evaluate:
-policies = ['fixed_1', 'fixed_2', 'fixed_3', 'fixed_5']
+policies = ['fixed_3']
             #'reach_99', 'reach_70', 'reach_50', 'reach_30', 'reach_10',
             #'random_80', 'random_60', 'random_50', 'random_25']
 
@@ -602,7 +602,7 @@ for policy in policies:
     new_q_table = myPPP.q_table
 
     # Number of simulations to be run. The self.T will be ran the times in the parameter
-    num_simulations = int(5e4)
+    num_simulations = int(5e5)
 
     for i in range(num_simulations):
         state = myPPP.reset()
