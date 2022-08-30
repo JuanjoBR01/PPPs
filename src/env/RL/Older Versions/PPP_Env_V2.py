@@ -29,9 +29,7 @@ Important details:
 # -------------------------------- lIBRARY IMPORT ---------------------------------
 
 
-from ctypes.wintypes import RGB
 from math import exp, log
-from turtle import color
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -419,7 +417,7 @@ myPPP = EnvPPP()
 new_q_table = myPPP.q_table
 
 # Number of simulations to be run. The self.T will be ran the times in the parameter
-num_simulations = int(1e3)
+num_simulations = int(5e5)
 
 for i in range(num_simulations):
     state = myPPP.reset()

@@ -78,7 +78,7 @@ class EnvPPP():
         
         #Social benefit related to the performance level. g_star is the expected one 
 
-        self.g = {5:2, 4:47, 3:500, 2:953, 1:998}
+        self.g = {1:2, 2:47, 3:500, 4:953, 5:998}
         # Earnings target
         self.g_star = 595
 
@@ -151,7 +151,7 @@ class EnvPPP():
 
 
     # Cost function depending on the incentive
-    def cost(self, dwm, X, W=[False, False]):
+    def cost(self, dwm, X):
 
         perf = self.theta[dwm]
         # The fisrt thing is to obtain the incentive depending on the performance. It is calculated with the days that have passed wothout maintenance
@@ -159,11 +159,11 @@ class EnvPPP():
 
         #return -self.FC*X - self.VC*X + 7*self.incentive()
         #return -self.FC*X - self.VC*X + 7*self.MIP_incentive()
-        return -self.FC*X - self.VC*X + self.MIP_incentive(dwm)
+        return -self.FC*X - self.VC*X + self.MIP_incentive(dwm) 
 
 
     # Transition between states function
-    def transition(self, dwm, X, W=[False, False]):
+    def transition(self, dwm, X):
         if X:
             return 0
         else:
@@ -198,7 +198,7 @@ class EnvPPP():
         else:
             x = pi(S)
 
-        value = sum( w[0]*(C(S, x, w[1]) + self.gamma*self.v_hat[ SM(S, x, w[1]) ] ) for w in self.f_W )
+        value = sum( w[0]*(C(S, x) + self.gamma*self.v_hat[ SM(S, x) ] ) for w in self.f_W )
         return value
 
 
@@ -210,7 +210,7 @@ class EnvPPP():
         SM, C = self.transition, self.cost 		# for short
 
         def Ew_Bellman(x):
-            return sum( w[0]*( C(S, x, w[1]) + self.gamma*self.v_hat[ SM(S, x, w[1]) ] ) for w in self.f_W )
+            return sum( w[0]*( C(S, x) + self.gamma*self.v_hat[ SM(S, x) ] ) for w in self.f_W )
 		
         cand = [(x, Ew_Bellman(x)) for x in self.X]
 

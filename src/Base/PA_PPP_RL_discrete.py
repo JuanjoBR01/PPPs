@@ -171,12 +171,11 @@ class PPP():
 		apply maintenance OR increase time since last maintenance
 	'''
 	def transition(self, S, X=0, W=[False, False]):
-		S_prime = 0
+		S_prime = S
 		if X > .5:
 			S_prime = 0	
 		# TODO: Preguntar a qué hace referencia este condicional
-		#elif S < int(self.ttf)-1:
-		else:
+		elif S < int(self.ttf)-1:
 			S_prime += 1
 
 		return S_prime
@@ -276,6 +275,7 @@ class PPP():
 													# The trick: V_bw uses a new 'v_hat'
 				if old_action != current_policy[i]:
 					policy_is_changing = True
+
 		return current_policy
 
 
@@ -295,7 +295,7 @@ class PPP():
 				X = self.fixed_action_rule(S=self.S, kind='reach_8')
 
 			self.S = self.transition(self.S, X)
-			performance.append( self.S )
+			performance.append( self.get_perf(self.S) )
 			c = self.cost(self.S, X)
 			total -= c
 			cashflow.append( -c )
