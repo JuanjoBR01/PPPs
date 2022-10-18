@@ -6,28 +6,11 @@
         * Samuel Rodríguez
         * Juan José Beltrán Ruiz
         * Juan Betancourt
-        * Martín Romero
+        * Martín Romero 
 
 '''
-
-'''
-Next steps:
-    1. Let the agent make random decisions with the epsilon parameter
-    2. Review Juan's library to change the inputs when creating the instance
-    3. Keep improving the graphics
-    4. Review why the random seed is affecting the behaviour
-    5. Change the budget to be the cashfow of each period
-'''
-
-'''
-Important details:
-1. Currently, the agent con only make two decisions, fix or not. When fixing, the performance reaches 100%
-2. Q_table is being initialized randomly
-'''
-
 
 # -------------------------------- lIBRARY IMPORT ---------------------------------
-
 
 from math import exp, log
 import matplotlib.pyplot as plt
@@ -37,6 +20,10 @@ plt.style.use('ggplot')
 from gurobipy import *
 np.random.seed(10)
 random.seed(10)
+
+SHOW_EVERY = 1000
+
+
 
 # -------------------------------- CLASS DEFINITION ---------------------------------
 
@@ -95,7 +82,7 @@ class EnvPPP():
         '''
         Return's epsilon
         Benefit and target profit
-        self.epsilon = 1.4*100
+        self.epsilon = 1.4*100 
 
         Parameter f (¿?)
         TODO: Review exact paper
@@ -164,7 +151,7 @@ class EnvPPP():
             count_l = 0
             for gamma_val in self.gamma:
                 if self.get_level(gamma_val) == level:
-                    average_l += 7*self.incentive(gamma_val)
+                    average_l += (7*1.5)*self.incentive(gamma_val)
                     count_l += 1
             self.bond[level] = average_l/count_l
 
@@ -334,7 +321,7 @@ class EnvPPP():
         plt.show()
 
     # Function to iterate the environment
-    def run(self, state):
+    def run(self, state, episode_rewards_agent, aggr_ep_rewards_agent, show_it):
         # performance = [state[1]]
         # cashflow = [state[2]]
         performance = []
@@ -343,18 +330,24 @@ class EnvPPP():
         maintenances = []
         cashflow = []
         budget = []
+        X = 0
 
         for episode in range(self.T):
-
+        
             # Decide if a random exploration is done
-            if np.random.random() > self.epsilon:
-                X = self.fixed_action_rule_agent(False)
+            if self.inspection_policy[:5] == 'reach' and self.gamma[self.S[0]] * 100 < int(self.inspection_policy[6:]):
+                X = 1
             else:
-                X = self.fixed_action_rule_agent(True)
+                if np.random.random() > self.epsilon:
+                    X = self.fixed_action_rule_agent(False)
+                else:
+                    X = self.fixed_action_rule_agent(True)
+                
 
-            #self.W[1] = self.inspect('random_10', episode)
-            #self.W[1] = self.inspect('reach_50', episode)
+
             self.W[1] = self.inspect(self.inspection_policy, episode)
+
+                
 
             inspections.append(self.W[1])
             maintenances.append(X)
@@ -365,6 +358,8 @@ class EnvPPP():
 
             reward = self.transition(X)
 
+                
+
             new_state = self.S[0]
 
             max_future_q = np.max(self.q_table[new_state])
@@ -372,6 +367,35 @@ class EnvPPP():
             new_q = (1-self.LEARNING_RATE) * current_q + self.LEARNING_RATE * (reward + self.DISCOUNT * max_future_q)
 
             self.q_table[prev_state, X] = new_q
+
+            '''
+            episode_rewards_agent.append(reward)
+
+            if not show_it % SHOW_EVERY:    
+                average_reward_agent = sum(episode_rewards_agent[-SHOW_EVERY:])/len(episode_rewards_agent[-SHOW_EVERY:])
+                aggr_ep_rewards_agent['ep'].append(show_it)
+                aggr_ep_rewards_agent['avg'].append(average_reward_agent)
+                aggr_ep_rewards_agent['min'].append(min(episode_rewards_agent[-SHOW_EVERY:]))
+                aggr_ep_rewards_agent['max'].append(max(episode_rewards_agent[-SHOW_EVERY:]))
+
+                save = True
+
+                if show_it % SHOW_EVERY == 0 and show_it > 0 and save:
+                    moving_avg_agent = np.convolve(episode_rewards_agent, np.ones((SHOW_EVERY,))/SHOW_EVERY, mode= "valid")
+
+                    fig, ax1 = plt.subplots()
+                    #ax1 = ax1.twinx()
+                    ax1.plot([j for j in range(len(moving_avg_agent))], moving_avg_agent, color = 'b', label = "Agents's performance", linestyle = 'dashed')
+                    ax1.set_ylabel(f"Agent moving avg reward every {SHOW_EVERY} episodes")
+                    ax1.legend(loc='upper right')
+                    plt.suptitle("Learning performance", fontsize=15)
+                    plt.grid(True)
+                    plt.savefig('Learning_performance.png')
+                    plt.close()
+
+            show_it += 1
+            '''
+
 
             if episode == 0:
                 performance.append(self.S[1])
@@ -382,13 +406,12 @@ class EnvPPP():
                 budget.append(self.S[2])
                 cashflow.append(round(reward, 5))
 
-        return budget, inspections, maintenances, performance, cashflow
+        return budget, inspections, maintenances, performance, cashflow, show_it
 
 
 def follower_PPP(x_param, maintenances):
-    gamma = myPPP.gamma
     
-
+    gamma = myPPP.gamma
 
     fc = [myPPP.FC for _ in range(myPPP.T)]
     vc = [myPPP.VC for _ in range(myPPP.T)]
@@ -502,6 +525,8 @@ def follower_PPP(x_param, maintenances):
 
     Follower.update() 
     Follower.setParam(GRB.Param.OutputFlag, 0)
+    #Follower.setParam(GRB.Param.InfUnbdInfo, 1)
+    #Follower.setParam(GRB.Param.DualReductions, 0)
 
 
     return Follower
@@ -519,7 +544,6 @@ def comparison(policy, inspections, maintenances):
     for case in [maintenances, {}]:
         Follower = follower_PPP(inspections, case)
         Follower.optimize()
-        print(Follower.status)
         if Follower.status == 2:
             it += 1
             social_benefit = sum(myPPP.g[l]*Follower.getVarByName("z_"+str((t,l))).x for l in myPPP.L for t in range(myPPP.T)) 
@@ -535,6 +559,15 @@ def comparison(policy, inspections, maintenances):
                 pareto["Agent"].append((cummulative_budget, "r", "MIPMaintenance"))
                 gap_not_maint_principal = social_benefit
                 gap_not_maint_agent =   cummulative_budget
+
+
+        elif Follower.status == 3:
+                status = "Infeasible"
+                print(f'\nThe optimization status is: {status} (code {Follower.status})')
+	
+        else:
+            status = "Unbounded or something else"
+            print(f'\nThe optimization status is: {status} (code {Follower.status})')
 
 
     if it == 2:
@@ -579,15 +612,72 @@ def comparison(policy, inspections, maintenances):
     save = True
     if save:
         plt.savefig("Principal's vs. Agent Objective_"+str(policy)+'.png')
-    #plt.show()
+    plt.show()
+
+    results = policy + ',' + str(x_em[0]) + ',' + str(y_em[0]) + ',' + str(x_MIPm[0]) + ',' + str(y_MIPm[0]) + ',' +str(gap_agent)
+
+    return results
+
+
+
+def show_pareto(route):
+
+    results = []
+
+
+    with open(route) as f:
+        while True:
+            line = f.readline()
+
+            if not line:
+                break
+
+            values = line.split(',')
+            elements = {'policy': values[0], 'x_env': float(values[1]), 'y_env': float(values[2]), 'x_MIP': float(values[3]), 'y_MIP': float(values[4]), 'gap': float(values[5])}
+            results.append(elements)
+        
+        policies = []
+        x_env = []
+        y_env = []
+        x_MIP = []
+        y_MIP = []
+
+
+        for i in range(len(results)):
+            policies.append(results[i]['policy'])
+            x_env.append(results[i]['x_env'])
+            y_env.append(results[i]['y_env'])
+            x_MIP.append(results[i]['x_MIP'])
+            y_MIP.append(results[i]['y_MIP'])
+
+        # Env data plot
+        # Fixing random state for reproducibility
+
+        
+        N = len(policies)
+        colors = np.random.rand(N)
+        
+        plt.scatter(x_env, y_env, c= 'b', alpha=0.5, label = "Agents Maintenance")
+        plt.scatter(x_MIP, y_MIP, c= 'r', alpha=0.5, label = "Public Maintenance")
+        plt.title("Principal vs Agent's Objective")
+        plt.xlabel("Principal's objective")
+        plt.ylabel("Agent's objective")
+        plt.show()
+            
+
+
+
+
+
+
             
 # ----------------------- DECLARING, INITIALIZING AND RUNNING THE ENVIRONMENT -----------------------
 
 # Policies to evaluate:
-policies = ['fixed_3']
+policies = ['random_40']
+#policies = [ 'fixed_1', 'fixed_2', 'fixed_3', 'fixed_5']
             #'reach_99', 'reach_70', 'reach_50', 'reach_30', 'reach_10',
             #'random_80', 'random_60', 'random_50', 'random_25']
-
 
 
 for policy in policies:
@@ -604,6 +694,12 @@ for policy in policies:
     # Number of simulations to be run. The self.T will be ran the times in the parameter
     num_simulations = int(5e5)
 
+
+    episode_rewards_agent = []
+    aggr_ep_rewards_agent = {'ep': [], 'avg': [], 'min': [], 'max': []}
+
+
+    show_it = 0
     for i in range(num_simulations):
         state = myPPP.reset()
 
@@ -614,16 +710,16 @@ for policy in policies:
 
         myPPP.q_table = new_q_table
         values = []
-        values = myPPP.run(state)
-
+        values = myPPP.run(state, episode_rewards_agent, aggr_ep_rewards_agent, show_it)
+        show_it = values[-1]
         new_q_table = myPPP.q_table
+        
 
 
     # The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward -or cashflow- (4)]
-    #myPPP.show_performance(values[1], values[2], values[3])
+    myPPP.show_performance(values[1], values[2], values[3])
     #myPPP.show_budget(values[0])
     #myPPP.show_cashflows(values[4])
-
 
     # Section of the code that prints the decisions made by the agent at the end of the simulation among 30 periods
 
@@ -633,4 +729,18 @@ for policy in policies:
         dictMaints['x_' + str(i)] = values[2][i]
         dictInspections['q_' + str(i)] = values[1][i]
 
-    comparison(policy, dictInspections, dictMaints)
+    policy_results = comparison(policy, dictInspections, dictMaints)
+
+
+    # Open a file with access mode 'a'
+    file_object = open('global_results_ii.txt', 'a')
+    # Append 'hello' at the end of file
+    
+    file_object.write(policy_results + '\n')
+    # Close the file
+    file_object.close()
+
+
+
+#show_pareto('global_results_ri.txt')
+#Algoritmo de diferencia temporal

@@ -49,10 +49,11 @@ class EnvPPP():
 
         # ---- Class Atributes ----
         self.S = [0, 1, 2]                          # Current state (for when running [Age, Performance, Budget]
+        self.X = [0,1]
         self.T = 30								    # Planning horizon
         self.W = [0, 1] 		                    # [shock?, inspection?
         self.NUM_INTERVALS = 5
-        self.L = range(1,self.NUM_INTERVALS + 1)	# discrete levels of performance
+        self.L = range(1,self.NUM_INTERVALS + 1)	# discrete levels of performance 
 
 
         self.FC = 1                                 # Fixed maintenance cost
@@ -152,13 +153,6 @@ class EnvPPP():
 
     # Cost function depending on the incentive
     def cost(self, dwm, X):
-
-        perf = self.theta[dwm]
-        # The fisrt thing is to obtain the incentive depending on the performance. It is calculated with the days that have passed wothout maintenance
-        # dwm refers to days without maintenance
-
-        #return -self.FC*X - self.VC*X + 7*self.incentive()
-        #return -self.FC*X - self.VC*X + 7*self.MIP_incentive()
         return -self.FC*X - self.VC*X + self.MIP_incentive(dwm) 
 
 
@@ -166,8 +160,10 @@ class EnvPPP():
     def transition(self, dwm, X):
         if X:
             return 0
-        else:
-            return dwm + 1
+        elif dwm < int(self.ttf)-1:
+            dwm += 1
+
+        return dwm
 
 
     # Action function
@@ -260,4 +256,6 @@ class EnvPPP():
 # Declaration of the instance
 myPPP = EnvPPP()
 
-myPPP.policy_iteration()
+policy = myPPP.policy_iteration()
+
+print(policy)

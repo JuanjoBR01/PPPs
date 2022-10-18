@@ -1,0 +1,42 @@
+Outline presentación: 
+1. Qué es una PPP y por qué es importante
+2. Tirar el problema del principal agente
+3. Contexto de que se usa mucho en inversiones grandes de proyectos de infraestructura y concesiones
+4. Revisar el literature review 
+https://www.connectedpapers.com/main/dd9857170aab1745fc9969a11325fd97f0f21c92/An-exact-optimization-approach-to-the-principal%20agent-problem-in-infrastructure-projects-via-PPPs/derivative
+    Ver el paper de sanchez silva
+    Hay otros chinos que hacen un genético
+
+    Hay optimización exacta y optimización aproximada
+    Como nos metemos con decisiones en el tiempo nos metemos con Powell y programación dinámica aproximada
+    Tener ambiente nos da la generalización de las metodología 
+    Otra metodolodía es el binivel 
+
+    Estamos tirando RL porque usamos el marco para tener modelado el problema para los MIP 
+
+    Decir esquemáticamente los estados, decisiones, W's que tienen deterioro y políticas de inspección 
+    Luego decir la función de transición 
+
+5. Pasamos a los experimentos 
+    Presentamos insights y para eso vamos al Pareto
+    Sensibilidad con los tamaños de incentivos (3)
+    Pintamos el Pareto para FO del principal versus la del agente. Ponemos 15 puntos en el Pareto y según las 15, y la mejor respuesta del agente vemos el Trade Off entre el interés del público y del privado
+    Con eso se puede escoger la política de inspección y el tamaño de los incentivos
+    Para cada tamaño de torta tenemos varias inspecciones
+
+    Si tenemos el agente que juega el siguiente paso es montarnos en el multiagente
+
+6. Trabajo futuro respecto a lo que queremos 
+    Si queremos que esto sea un sistema de apoyo a la decisión
+    A partir de los 3 tamaños de torta, le damos con las simulaciones los valores para que el público escoja
+    Resultados van en dos partes. Mostrar las funciones objetivo y ver cómo se ven los Gaps con Boxplot o con histograma 
+
+    Pruebas: tenemos prueba de concepto sobre cómo nos auyda el problema 
+    Con la evaluación nos permite tomar una decisión
+    Por otra parte, tenemos una solución con Q learning, la cual es novedoda, en donde ya tenemos este modelo que corre el problema del principal agente, en donde incluso podemos llegar a optimalidad en algunas de las pruebas 
+    A nivel de optimalidad eso es lo que quisiera un cliente
+    
+
+
+Cambio en la sigmoidal: incentivo que aproximadamente da la misma cantidad de inspecciones y cuando encontremos ese tamaño, 30% menos y 30% más y luego ver qué pasa si le doy más o menos
+Probar cambios en el 7 de la sigmoidal de los incentivos

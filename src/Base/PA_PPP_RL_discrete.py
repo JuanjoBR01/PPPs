@@ -175,7 +175,7 @@ class PPP():
 		if X > .5:
 			S_prime = 0	
 		# TODO: Preguntar a qué hace referencia este condicional
-		elif S < int(self.ttf)-1:
+		elif S < int(self.ttf)-1: 
 			S_prime += 1
 
 		return S_prime
