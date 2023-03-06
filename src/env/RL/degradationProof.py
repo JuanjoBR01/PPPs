@@ -8,6 +8,7 @@ from math import log
 import numpy as np
 import random as rd
 import matplotlib.pyplot as plt
+from math import sin
 
 # Progresive degradation
 def shapeFunction(function,t,delta):
@@ -74,8 +75,8 @@ def Combined(shape,scale,rateTime,funSize,argSize,Tmax,delta):
     return(per)
     
 # Generate scenarios
-def generate(I,num,typeDeterioration,args):
-    gamma = {}
+def generate(T,num,typeDeterioration,args):
+    gamma = []
     for s in range(num):
         if typeDeterioration == "P":
             aux = Progresive(*args)
@@ -84,5 +85,27 @@ def generate(I,num,typeDeterioration,args):
         elif typeDeterioration == "C":
             aux = Combined(*args)
         
-        gamma[s] = [round(aux[t*10],2) for t in I.T]
+        #gamma[s] = [round(aux[t*10],2) for t in range(T)]
+        gamma.append([round(aux[t*10],2) for t in range(T)])
     return(gamma)
+
+def q_shape(t):
+    return(8/90*(t**2))
+
+def s_shape(t):
+    return(40*sin(t/9.6+4.725))
+
+
+# Generate scenarios
+# Podemos cambiar el primer parámetro que es a 
+scenarios = generate(30,100,'P',(s_shape,1,30,0.1))
+scenarios = generate(30,50,'C',(q_shape,1,0.2,"log",(10,2),30,0.1))
+
+'''
+for i in range(30):
+    plt.plot(range(30), scenarios[i], label = "line " + str(i))
+
+plt.legend()
+plt.show()
+'''
+

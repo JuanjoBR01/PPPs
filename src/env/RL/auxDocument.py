@@ -200,7 +200,7 @@ class EnvPPP():
                 for t in Maintenance], 'b^', label="Maintenance actions")
         ax.set_xlabel("Period", size=15)
         ax.set_ylabel("Road's Performance", size=15)
-        ax.legend(loc='lower center')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc='best')
         plt.suptitle("Leader's perspective", fontsize=15)
         plt.grid(True)
         plt.savefig('Performance' + self.inspection_policy +'.png')
@@ -533,67 +533,33 @@ def show_pareto(route):
 # ----------------------- DECLARING, INITIALIZING AND RUNNING THE ENVIRONMENT -----------------------
 
 # Policies to evaluate:
-policy = 'random_55'
+policy = 'random_25'
 #policies = [ 'fixed_1', 'fixed_2', 'fixed_3', 'fixed_5']
             #'random_80', 'random_60', 'random_50', 'random_25']
 
 # Declaration of the instance
 myPPP = EnvPPP()
 #myPPP.gamma = dp.generate(31,1,'P',(dp.s_shape,1,30,0.1))
-myPPP.gamma = dp.generate(30,1,'P',(dp.s_shape,1,30,0.1))[0]
+#myPPP.gamma = dp.generate(30,1,'P',(dp.s_shape,1,30,0.1))[0]
 
-#Assignment of the policy
-myPPP.inspection_policy = policy
+'''
+fig, ax = plt.subplots()
+ax.plot(range(32), myPPP.gamma)
+plt.title("Deterioro Determinístico con Función Sigmoidal")
+plt.ylabel("Nivel de desempeño")
+plt.xlabel("Periodo")
 
-# Declaration of the cumulative q_table, in the next replica, the agent will take the q_table that the previous agent left
-new_q_table = myPPP.q_table 
-
-# Number of simulations to be run. The self.T will be ran the times in the parameter
-num_simulations = int(4e3)
+plt.show()
+'''
 
 
-episode_rewards_agent = []
-aggr_ep_rewards_agent = {'ep': [], 'avg': [], 'min': [], 'max': []}
+fig, ax = plt.subplots()
+for i in range(30):
+    ax.plot(range(30), dp.generate(30,1,'P',(dp.s_shape,1,30,0.1))[0])
+plt.title("Deterioro Estocástico con Procesos Gamma")
+plt.ylabel("Performance")
+plt.xlabel("Period")
+plt.show()
 
-show_it = 0
-for i in range(num_simulations):
-    state = myPPP.reset()
 
-    #if not i % 10000:
-    #    print(i)
-
-    myPPP.S = state
-
-    if i == num_simulations-1:
-        myPPP.epsilon = 0
-
-    myPPP.q_table = new_q_table
-    values = []
-    values = myPPP.run(state, episode_rewards_agent, aggr_ep_rewards_agent, show_it)
-    show_it = values[-1]
-    new_q_table = myPPP.q_table
-        
-# The order of the values array is [cashflow(0), inspections(1), maintenances(2), performance(3), reward -or cashflow- (4)]
-myPPP.show_performance(values[1], values[2], values[3])
-#myPPP.show_cashflows(values[4])
-
-# Section of the code that prints the decisions made by the agent at the end of the simulation among 30 periods
-
-dictMaints = {}
-dictInspections = {}
-for i in range(len(values[2])):
-    dictMaints['x_' + str(i)] = values[2][i]
-    dictInspections['q_' + str(i)] = values[1][i]
-
-policy_results = comparison(policy, dictInspections, dictMaints)
-
-# Open a file with access mode 'a'
-file_object = open('global_results_ri.txt', 'a')
-# Append 'hello' at the end of file
-
-file_object.write(policy_results + '\n')
-# Close the file
-file_object.close()
-
-#show_pareto('global_results_ri.txt')
 

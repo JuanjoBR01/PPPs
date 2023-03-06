@@ -1,1 +1,0 @@
-Hacer media móvil de los últimos 500 episodios de los rewards 

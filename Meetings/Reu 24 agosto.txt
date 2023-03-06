@@ -1,6 +1,0 @@
-Cambiar los incentivos a que los dos mejores niveles le den algo, el de la mitad no le dé nada y los dos últimos pasar a valores negativos
-Siempre comparar el GAP del ambiente y el MIP
-Todas las corridas de las diferentes políticas - calcular funciones objetivo y pintarlas en un 2D (nube de puntos)
-
-
-Terminar de adaptar el PI y pasar el RL a que ´se haga según el número de días que llevo sin arreglar
